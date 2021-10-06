@@ -2,7 +2,7 @@
 CC=gcc
 CXX=g++
 INCLUDES=\
-	-Iinclude -Ihackable-console/include -IRetroArch/libretro-common/include
+	-Iinclude -Ideps
 
 CFLAGS=$(INCLUDES) $(DEFINES) -Wall -Werror
 CXXFLAGS=$(CFLAGS) -std=c++11

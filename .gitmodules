@@ -1,6 +1,0 @@
-[submodule "RetroArch"]
-	path = RetroArch
-	url = https://github.com/libretro/RetroArch
-[submodule "hackable-console"]
-	path = hackable-console
-	url = https://github.com/leiradel/hackable-console
