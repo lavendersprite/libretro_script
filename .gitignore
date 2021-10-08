@@ -2,3 +2,5 @@
 *.so
 *.obj
 *.dll
+*.a
+*.lib
