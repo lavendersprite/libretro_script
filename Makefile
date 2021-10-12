@@ -1,7 +1,7 @@
 # Toolset
 CC=gcc
 CXX=g++
-INCLUDES=-Iinclude -Ideps -Ilua-5.4.3
+INCLUDES=-Iinclude -Ideps -Ideps/lua-5.4.3
 
 CFLAGS=$(INCLUDES) $(DEFINES) -Wall -Werror -fPIC
 CXXFLAGS=$(CFLAGS) -std=c++11
@@ -31,7 +31,7 @@ LIB=$(LIB_PREFIX)retro_script$(LIB_SUFFIX)
 
 SCRIPT_SOURCES=$(wildcard src/*.c)
 SCRIPT_OBJECTS=$(patsubst %.c,%.o,$(SCRIPT_SOURCES))
-LUA_SOURCES=$(wildcard lua-5.4.3/*.c)
+LUA_SOURCES=$(wildcard deps/lua-5.4.3/*.c)
 LUA_OBJECTS=$(patsubst %.c,%.o,$(LUA_SOURCES))
 
 OBJECTS=$(LUA_OBJECTS) $(SCRIPT_OBJECTS)
