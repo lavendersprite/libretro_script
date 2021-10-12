@@ -3,9 +3,15 @@ CC=gcc
 CXX=g++
 INCLUDES=-Iinclude -Ideps -Ilua-5.4.3
 
-CFLAGS=$(INCLUDES) $(DEFINES) -Wall -Werror -fPIC -O2
+CFLAGS=$(INCLUDES) $(DEFINES) -Wall -Werror -fPIC
 CXXFLAGS=$(CFLAGS) -std=c++11
 LDFLAGS=-shared -lm
+
+ifeq ($(DEBUG), 1)
+	CFLAGS += -g
+else
+	CFLAGS += -O2
+endif
 
 ifeq ($(OS),Windows_NT)
 	LIB_SUFFIX=.lib
@@ -44,7 +50,7 @@ $(LIB): $(OBJECTS)
 	
 lib: $(LIB)
 
-shlib: ($SHLIB)
+shlib: $(SHLIB)
 
 all: $(SHLIB) $(LIB)
 
