@@ -122,3 +122,11 @@ bool script_free(retro_script_id_t id)
         return true;
     }
 }
+
+void script_clear_all()
+{
+    while (script_states)
+    {
+        script_free(script_states->id);
+    }
+}

@@ -18,22 +18,36 @@ void retro_script_clear_error()
 
 void retro_script_set_error(const char* s)
 {
-    error_text = _strdup(s);
-    if (error_text)
+    if (!s)
     {
-        error_managed = 1;
+        retro_script_clear_error();
     }
     else
     {
-        retro_script_set_error_nofree("Insufficient memory to allocate error description.");
+        error_text = retro_script_strdup(s);
+        if (error_text)
+        {
+            error_managed = 1;
+        }
+        else
+        {
+            retro_script_set_error_nofree("Insufficient memory to allocate error description.");
+        }
     }
 }
 
 void retro_script_set_error_nofree(const char* s)
 {
-    retro_script_clear_error();
-    error_managed = 0;
-    error_text = s;
+    if (!s)
+    {
+        retro_script_clear_error();
+    }
+    else
+    {
+        retro_script_clear_error();
+        error_managed = 0;
+        error_text = s;
+    }
 }
 
 const char* retro_script_get_error()

@@ -36,4 +36,7 @@ script_state_t* script_first();
 // frees the path and lua state as well.
 bool script_free(retro_script_id_t);
 
+// removes all scripts.
+void script_clear_all();
+
 #define SCRIPT_ITERATE(script_state) for (script_state_t* script_state = script_first(); script_state; script_state = script_state->next)
