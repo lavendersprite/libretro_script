@@ -3,7 +3,7 @@
 
 #include "script.h"
 #include "memmap.h"
-#include "debug_hooks.h"
+#include "hc_hooks.h"
 #include "core.h"
 
 #include <stdio.h>
@@ -51,6 +51,10 @@ void retro_script_register_on_deinit(core_init_cb_t cb)
 
 uint32_t retro_script_init()
 {
+    #ifdef RETRO_SCRIPT_DEBUG
+    retro_script_debug_force_include();
+    #endif
+    
     if (state == RS_DEINIT)
     {
         memset(&core, 0, sizeof(core));

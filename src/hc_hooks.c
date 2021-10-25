@@ -1,4 +1,4 @@
-#include "debug_hooks.h"
+#include "hc_hooks.h"
 #include "core.h"
 #include "hashmap.h"
 
@@ -42,7 +42,7 @@ static void on_breakpoint(unsigned id)
     }
 }
 
-int retro_script_hc_register_breakpoint(retro_script_hc_breakpoint_userdata userdata, unsigned breakpoint_id, retro_script_breakpoint_cb cb)
+int retro_script_hc_register_breakpoint(retro_script_hc_breakpoint_userdata* userdata, unsigned breakpoint_id, retro_script_breakpoint_cb cb)
 {
     if (!cb) return 1;
     if (!retro_script_hc_get_debugger()) return 1;
@@ -52,7 +52,7 @@ int retro_script_hc_register_breakpoint(retro_script_hc_breakpoint_userdata user
     );
     
     if (!entry) return 1;
-    entry->userdata = userdata;
+    memcpy(&entry->userdata, userdata, sizeof(*userdata));
     entry->cb = cb;
     return 0;
 }
@@ -78,7 +78,12 @@ hc_DebuggerIf* retro_script_hc_get_debugger()
         {
             if (core.retro_get_proc_address)
             {
-                core.hc.set_debugger = (hc_Set)core.retro_get_proc_address("hc_get_debugger");
+                core.hc.set_debugger = (hc_Set)core.retro_get_proc_address("hc_set_debugger");
+                if (!core.hc.set_debugger)
+                {
+                    // backup -- try with 3 gs, this is api v1
+                    core.hc.set_debugger = (hc_Set)core.retro_get_proc_address("hc_set_debuggger");
+                }
                 if (!core.hc.set_debugger)
                 {
                     // no debugger available

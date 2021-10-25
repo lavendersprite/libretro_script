@@ -30,7 +30,7 @@ retro_script_hashmap_create(size_t sizeof_data)
 
 void* retro_script_hashmap_add(struct retro_script_hashmap* map, size_t index)
 {
-    hashmap_entry_header** entry = &map->table[index * HASHTABLE_SIZE];
+    hashmap_entry_header** entry = &map->table[index % HASHTABLE_SIZE];
     while (*entry)
     {
         if ((*entry)->index == index)
@@ -58,7 +58,7 @@ void* retro_script_hashmap_add(struct retro_script_hashmap* map, size_t index)
 
 void* retro_script_hashmap_get(struct retro_script_hashmap const* map, size_t index)
 {
-    hashmap_entry_header* entry = map->table[index * HASHTABLE_SIZE];
+    hashmap_entry_header* entry = map->table[index % HASHTABLE_SIZE];
     while (entry)
     {
         if (entry->index == index)

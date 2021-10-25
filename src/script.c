@@ -3,13 +3,14 @@
 #include <lualib.h>
 
 #include "script_luafuncs.h"
-#include "debug_hooks.h"
+#include "hc_hooks.h"
 
 #include "libretro_script.h"
 #include "script.h"
 #include "error.h"
 #include "memmap.h"
 #include "core.h"
+#include "util.h"
 
 // clear all scripts when a core is loaded
 ON_INIT()
@@ -64,7 +65,6 @@ static void lua_set_libs(lua_State* L)
     
         // register c functions
     #define REGISTER_FUNC(name, func) \
-        lua_pushvalue(L, -1); \
         lua_pushcfunction(L, func); \
         lua_setfield(L, -2, name)
     #define REGISTER_SCRIPT_SET_REF(ref) \

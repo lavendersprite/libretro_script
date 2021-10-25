@@ -8,7 +8,7 @@ CXXFLAGS=$(CFLAGS) -std=c++11
 LDFLAGS=-shared -lm
 
 ifeq ($(DEBUG), 1)
-	CFLAGS += -g
+	CFLAGS += -g -DRETRO_SCRIPT_DEBUG
 else
 	CFLAGS += -O2
 endif

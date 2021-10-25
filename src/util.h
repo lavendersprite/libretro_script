@@ -1,7 +1,17 @@
 #pragma once
 
+/* A collection of useful utilities and macros.
+ * Can be included from any file.
+ */
+
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef RETRO_SCRIPT_DEBUG
+// we include debug.h to allow gdb access from most files,
+// since most files include util.h
+#include "debug.h"
+#endif
 
 #ifndef FORCEINLINE
     #if defined(__GNUC__) || defined(__clang__) || defined(__MINGW32__) || defined(__MINGW64__)

@@ -1,11 +1,12 @@
 #include "hc_luafuncs.h"
-#include "debug_hooks.h"
+#include "hc_hooks.h"
 #include "hashmap.h"
 #include "core.h"
 #include "hc_registers.h"
 
 #include <libretro.h>
 #include <hcdebug.h>
+
 #include <lauxlib.h>
 #include <lualib.h>
 
@@ -61,9 +62,9 @@ static bool lua_table_for_data(lua_State* L, void const* ptr)
 static void* get_userdata_from_self(lua_State* L)
 {
     if (lua_gettop(L) <= 0) return NULL;
-    if (!lua_istable(L, 0)) return NULL;
+    if (!lua_istable(L, 1)) return NULL;
     
-    if (lua_getfield(L, 0, USERDATA_FIELD) != LUA_TLIGHTUSERDATA)
+    if (lua_getfield(L, 1, USERDATA_FIELD) != LUA_TLIGHTUSERDATA)
     {
         lua_pop(L, 1);
         return NULL;
@@ -116,7 +117,7 @@ static int memory_peek(lua_State* L)
     hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
     if (!memory || !memory->v1.peek) return 0;
     
-    uint64_t address = lua_tointeger(L, 1);
+    uint64_t address = lua_tointeger(L, 2);
     uint8_t value = memory->v1.peek(core.hc.userdata, address);
     
     lua_pushinteger(L, value);
@@ -130,9 +131,9 @@ static int memory_poke(lua_State* L)
     hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
     if (!memory || !memory->v1.poke) return 0;
     
-    uint64_t address = lua_tointeger(L, 1);
+    uint64_t address = lua_tointeger(L, 2);
     
-    uint8_t value = lua_tointeger(L, 2);
+    uint8_t value = lua_tointeger(L, 3);
     
     memory->v1.poke(core.hc.userdata, address, value);
     return 0;
@@ -167,9 +168,7 @@ static void pcall_function_from_ref(lua_State* L, lua_Integer ref, const int arg
 static void on_breakpoint(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
-    hc_Breakpoint* breakpoint = (hc_Breakpoint*)u.values[1].ptr;
-    (void)breakpoint;
-    lua_Integer ref = u.values[2].u64;
+    lua_Integer ref = u.values[1].u64;
     
     // TODO: arguments.
     const int argc = 0;
@@ -181,9 +180,7 @@ static void on_breakpoint(retro_script_hc_breakpoint_userdata u, unsigned breakp
 static void on_cpu_exec(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
-    hc_Cpu* cpu = (hc_Cpu*)u.values[1].ptr;
-    (void)cpu;
-    lua_Integer ref = u.values[2].u64;
+    lua_Integer ref = u.values[1].u64;
     
     // TODO: arguments.
     const int argc = 0;
@@ -195,9 +192,7 @@ static void on_cpu_exec(retro_script_hc_breakpoint_userdata u, unsigned breakpoi
 static void on_memory_access(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
-    hc_Memory* memory = (hc_Memory*)u.values[1].ptr;
-    (void)memory;
-    uintptr_t ref = (uintptr_t)u.values[2].u64;
+    uintptr_t ref = (uintptr_t)u.values[1].u64;
     
     // TODO: arguments.
     const int argc = 0;
@@ -209,9 +204,7 @@ static void on_memory_access(retro_script_hc_breakpoint_userdata u, unsigned bre
 static void on_register_breakpoint(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
-    hc_Cpu* cpu = (hc_Cpu*)u.values[1].ptr;
-    (void)cpu;
-    uintptr_t ref = (uintptr_t)u.values[2].u64;
+    uintptr_t ref = (uintptr_t)u.values[1].u64;
     
     // TODO: arguments.
     const int argc = 0;
@@ -229,7 +222,7 @@ static int get_register(lua_State* L)
     if (!cpu) return 0;
     
     lua_Integer idx;
-    if (lua_getfield(L, 0, "_idx") == LUA_TNUMBER)
+    if (lua_getfield(L, 1, "_idx") == LUA_TNUMBER)
     {
         idx = lua_tointeger(L, -1);
     }
@@ -250,7 +243,7 @@ static int get_register(lua_State* L)
 static int set_register(lua_State* L)
 {
     if (nargs(L) != 2) return 0;
-    if (!lua_isinteger(L, 1)) return 0;
+    if (!lua_isinteger(L, 2)) return 0;
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu) return 0;
@@ -272,7 +265,7 @@ static int set_register(lua_State* L)
     cpu->v1.set_register(
         core.hc.userdata,
         idx,
-        lua_tointeger(L, 1)
+        lua_tointeger(L, 2)
     );
     
     return 0;
@@ -282,7 +275,7 @@ static int set_register(lua_State* L)
 static int set_register_breakpoint(lua_State* L)
 {
     if (nargs(L) != 2) return 0;
-    if (!lua_isfunction(L, 1)) return 0;
+    if (!lua_isfunction(L, 2)) return 0;
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu) return 0;
@@ -311,9 +304,8 @@ static int set_register_breakpoint(lua_State* L)
     
     retro_script_hc_breakpoint_userdata u;
     u.values[0].ptr = L;
-    u.values[1].ptr = (void*)cpu;
-    u.values[2].u64 = ref;
-    retro_script_hc_register_breakpoint(u, id, on_register_breakpoint);
+    u.values[1].u64 = ref;
+    retro_script_hc_register_breakpoint(&u, id, on_register_breakpoint);
     
     // return breakpoint id
     lua_pushinteger(L, id);
@@ -330,9 +322,9 @@ static int memory_set_watchpoint(lua_State* L)
     hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
     if (!memory) return 0;
     
-    uint64_t address = lua_tointeger(L, 1);
-    uint64_t length = lua_tointeger(L, 2);
-    const char* mode = lua_isstring(L, 3) ? lua_tostring(L, 3) : NULL;
+    uint64_t address = lua_tointeger(L, 2);
+    uint64_t length = lua_tointeger(L, 3);
+    const char* mode = lua_isstring(L, 4) ? lua_tostring(L, 4) : NULL;
     const bool watch_read = mode ? !!strchr(mode, 'r') : 0;
     const bool watch_write = mode ? !!strchr(mode, 'w') : 1;
     
@@ -346,9 +338,8 @@ static int memory_set_watchpoint(lua_State* L)
     
     retro_script_hc_breakpoint_userdata u;
     u.values[0].ptr = L;
-    u.values[1].ptr = (void*)memory;
-    u.values[2].u64 = ref;
-    retro_script_hc_register_breakpoint(u, id, on_memory_access);
+    u.values[1].u64 = ref;
+    retro_script_hc_register_breakpoint(&u, id, on_memory_access);
     
     // return breakpoint id
     lua_pushinteger(L, id);
@@ -366,7 +357,7 @@ static int breakpoint_enable(lua_State* L)
     
     // FIXME: what does 'yes' mean? How should we respect it..?
     const bool yes = (nargs(L) == 3)
-        ?  lua_toboolean(L, 1)
+        ?  lua_toboolean(L, 2)
         : 1;
     
     // REF the provided function
@@ -377,9 +368,8 @@ static int breakpoint_enable(lua_State* L)
     
     retro_script_hc_breakpoint_userdata u;
     u.values[0].ptr = L;
-    u.values[1].ptr = (void*)breakpoint;
-    u.values[2].u64 = ref;
-    retro_script_hc_register_breakpoint(u, id, on_breakpoint);
+    u.values[1].u64 = ref;
+    retro_script_hc_register_breakpoint(&u, id, on_breakpoint);
     
     lua_pushinteger(L, id);
     return 1;
@@ -394,7 +384,7 @@ static int cpu_set_exec_breakpoint(lua_State* L)
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu || !cpu->v1.set_exec_breakpoint) return 0;
     
-    uint64_t address = lua_tointeger(L, 1);
+    uint64_t address = lua_tointeger(L, 2);
     
     // REF the provided function
     lua_pushvalue(L, -1);
@@ -404,9 +394,8 @@ static int cpu_set_exec_breakpoint(lua_State* L)
     
     retro_script_hc_breakpoint_userdata u;
     u.values[0].ptr = L;
-    u.values[1].ptr = (void*)cpu;
-    u.values[2].u64 = ref;
-    retro_script_hc_register_breakpoint(u, id, on_cpu_exec);
+    u.values[1].u64 = ref;
+    retro_script_hc_register_breakpoint(&u, id, on_cpu_exec);
     
     lua_pushinteger(L, id);
     return 1;
@@ -540,24 +529,24 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
                         lua_pushvalue(L, -1);
                         lua_setfield(L, -3, name);
                     }
+                }
                     
-                    if (cpu->v1.get_register)
-                    {
-                        lua_pushcfunction(L, get_register);
-                        lua_setfield(L, -2, "get");
-                    }
-                    
-                    if (cpu->v1.set_register)
-                    {
-                        lua_pushcfunction(L, set_register);
-                        lua_setfield(L, -2, "set");
-                    }
-                    
-                    if (cpu->v1.set_reg_breakpoint)
-                    {
-                        lua_pushcfunction(L, set_register_breakpoint);
-                        lua_setfield(L, -2, "watch");
-                    }
+                if (cpu->v1.get_register)
+                {
+                    lua_pushcfunction(L, get_register);
+                    lua_setfield(L, -2, "get");
+                }
+                
+                if (cpu->v1.set_register)
+                {
+                    lua_pushcfunction(L, set_register);
+                    lua_setfield(L, -2, "set");
+                }
+                
+                if (cpu->v1.set_reg_breakpoint)
+                {
+                    lua_pushcfunction(L, set_register_breakpoint);
+                    lua_setfield(L, -2, "watch");
                 }
                 
                 lua_rawseti(L, -2, i + 1);
@@ -572,7 +561,7 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
         if (cpu->v1.memory_region)
         {
             push_memory_region(L, cpu->v1.memory_region);
-            lua_setfield(L, -2, "memory_region");
+            lua_setfield(L, -2, "memory");
         }
         
         if (cpu->v1.set_exec_breakpoint)

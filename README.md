@@ -85,7 +85,7 @@ Reads/writes a signed/unsigned 16-bit/32-bit/64-bit little-endian/big-endian val
 
 ### retro.hc
 
-This is non-nil if the core supports [hcdebug](https://github.com/leiradel/hackable-console), allowing breakpoints and watchpoints. The following functions are enabled:
+This is non-nil if the core supports [hcdebug](https://github.com/leiradel/hackable-console), allowing breakpoints and watchpoints. The following fields are available:
 
 ### retro.hc.system_get_description()
 
@@ -147,9 +147,13 @@ Retrieves a list of all emulated CPUs. The following fields may be included:
 
 An integer indicating the type of CPU as defined in [hcdebug.h](deps/hcdebug.h).
 
+### \* cpu.name
+
+Hackable-console macro name for the cpu. For example, `Z80` or `6502`. Inferred from `cpu.type`.
+
 ### cpu.is_main
 
-### \* cpu.memory_region
+### \* cpu.memory
 
 A table for the addressable memory region. See `retro.hc.system_get_memory_regions()` for a list of fields.
 
@@ -162,6 +166,30 @@ Sets a breakpoint which is triggered when the given address is set.
 ### cpu.breakpoints
 
 A list of special breakpoints. (see `retro.hc.system_get_breakpoints()` for fields).
+
+### cpu.registers
+
+A list of registers, also mapped by name. For example, 6502 registers could be access as `cpu.registers[1]`, `cpu.registers[2]`, etc., or by name, like `cpu.registers.X` or `cpu.registers.SP`, etc.
+
+The following fields may be included:
+
+### register.name
+
+The Hackable-console macro name for the register. Example (for 6502): `A`, `X`, `SP`, etc.
+
+### register:get()
+
+Retrieves the current value of the register.
+
+### register:set(value)
+
+Sets the current value of the register.
+
+### register:watch(callback)
+
+Sets a watchpoint to trigger when the register value changes.
+
+*Returns*: breakpoint id (currently not useful).
 
 ## Implementing into a frontend
 
