@@ -1,4 +1,4 @@
-# Libretro-script
+# Libretro_script
 
 This is a zero-dependency middleware library layer intended to lie between a libretro frontend and libretro implementation.
 
@@ -169,7 +169,7 @@ A list of special breakpoints. (see `retro.hc.system_get_breakpoints()` for fiel
 
 ### cpu.registers
 
-A list of registers, also mapped by name. For example, 6502 registers could be access as `cpu.registers[1]`, `cpu.registers[2]`, etc., or by name, like `cpu.registers.X` or `cpu.registers.SP`, etc.
+A list of registers, also mapped by name. For example, 6502 registers could be access as `cpu.registers[1]`, `cpu.registers[2]`, etc., or by name, like `cpu.registers.X` or `cpu.registers.PC`, etc. (Note: not necessarily the same registers are accessed in both examples)
 
 The following fields may be included:
 
@@ -191,15 +191,37 @@ Sets a watchpoint to trigger when the register value changes.
 
 *Returns*: breakpoint id (currently not useful).
 
-## Implementing into a frontend
+### retro.hc.main_cpu
 
-Refer to [libretro_script.h](include/libretro_script.h)
+The first cpu marked as `is_main`.
 
-## Building
+### retro.hc.main_memory
+
+The memory region addressed by `retro.hc.main_cpu`
+
+## Usage in a frontend
+
+Main reference: [libretro_script.h](include/libretro_script.h).
+
+In brief:
+
+```C
+#include <libretro_script.h>
+
+// after loading the core, but before running retro_init():
+{
+    retro_script_init();
+    core.retro_set_environment = retro_script_intercept_retro_set_environment(core.retro_set_environment);
+    core.retro_get_memory_data = retro_script_intercept_retro_get_memory_data(core.retro_get_memory_data);
+    core.retro_get_memory_size = retro_script_intercept_retro_get_memory_size(core.retro_get_memory_size);
+    core.retro_init = retro_script_intercept_retro_init(core.retro_init);
+    core.retro_deinit = retro_script_intercept_retro_deinit(core.retro_deinit);
+    core.retro_run = retro_script_intercept_retro_run(core.retro_run);
+}
+```
+
+Build with linker flag `-lretro_script`.
+
+## Building libretro_script
 
 Run `make lib` or `make shlib` depending on if a static or shared library is required. There are no dependencies beyond just `gcc`.
-
-### Note for Developers
-
-- malloc is used, so this might not be ideal for some old hardware. (TODO: implement an alternative to malloc..?)
-- active scripts are stored in a linkedlist, so some operations go as O(n) with number of scripts.

@@ -473,8 +473,11 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
         lua_createtable(L, mem->v1.num_break_points, 0);
         for (size_t i = 0; i < mem->v1.num_break_points; ++i)
         {
-            (void)push_breakpoint(L, mem->v1.break_points[i]);
-            lua_rawseti(L, -2, i + 1);
+            if (mem->v1.break_points[i])
+            {
+                (void)push_breakpoint(L, mem->v1.break_points[i]);
+                lua_rawseti(L, -2, i + 1);
+            }
         }
         lua_setfield(L, -2, "breakpoints");
     }
@@ -486,6 +489,9 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
 {
     if (lua_table_for_data(L, cpu))
     {
+        lua_pushlightuserdata(L, (void*)cpu);
+        lua_setfield(L, -2, USERDATA_FIELD);
+                
         if (cpu->v1.description)
         {
             lua_pushstring(L, cpu->v1.description);
@@ -591,8 +597,11 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
         lua_createtable(L, cpu->v1.num_break_points, 0);
         for (size_t i = 0; i < cpu->v1.num_break_points; ++i)
         {
-            (void)push_breakpoint(L, cpu->v1.break_points[i]);
-            lua_rawseti(L, -2, i + 1);
+            if (cpu->v1.break_points[i])
+            {
+                (void)push_breakpoint(L, cpu->v1.break_points[i]);
+                lua_rawseti(L, -2, i + 1);
+            }
         }
         lua_setfield(L, -2, "breakpoints");
     }
@@ -611,8 +620,11 @@ int retro_script_luafunc_hc_system_get_memory_regions(lua_State* L)
     lua_createtable(L, system->v1.num_memory_regions, 0);
     for (size_t i = 0; i < system->v1.num_memory_regions; ++i)
     {
-        (void)push_memory_region(L, system->v1.memory_regions[i]);
-        lua_rawseti(L, -2, i + 1);
+        if (system->v1.memory_regions[i])
+        {
+            (void)push_memory_region(L, system->v1.memory_regions[i]);
+            lua_rawseti(L, -2, i + 1);
+        }
     }
     return 1;
 }
@@ -622,8 +634,11 @@ int retro_script_luafunc_hc_system_get_breakpoints(lua_State* L)
     lua_createtable(L, system->v1.num_break_points, 0);
     for (size_t i = 0; i < system->v1.num_break_points; ++i)
     {
-        (void)push_breakpoint(L, system->v1.break_points[i]);
-        lua_rawseti(L, -2, i + 1);
+        if (system->v1.break_points[i])
+        {
+            (void)push_breakpoint(L, system->v1.break_points[i]);
+            lua_rawseti(L, -2, i + 1);
+        }
     }
     return 1;
 }
@@ -633,8 +648,32 @@ int retro_script_luafunc_hc_system_get_cpus(lua_State* L)
     lua_createtable(L, system->v1.num_cpus, 0);
     for (size_t i = 0; i < system->v1.num_cpus; ++i)
     {
-        (void)push_cpu(L, system->v1.cpus[i]);
-        lua_rawseti(L, -2, i + 1);
+        if (system->v1.cpus[i])
+        {
+            (void)push_cpu(L, system->v1.cpus[i]);
+            lua_rawseti(L, -2, i + 1);
+        }
     }
     return 1;
+}
+
+void retro_script_luafield_hc_main_cpu_and_memory(lua_State* L)
+{
+    for (size_t i = 0; i < system->v1.num_cpus; ++i)
+    {
+        hc_Cpu const* cpu = system->v1.cpus[i];
+        if (cpu && cpu->v1.is_main)
+        {
+            (void)push_cpu(cpu);
+            lua_setfield(L, -2, "main_cpu");
+            
+            // add cpu memory if available
+            if (cpu->v1.memory_region)
+            {
+                (void)push_memory_region(cpu->v1.memory_region);
+                lua_setfield(L, -2, "main_memory")
+            }
+            return;
+        }
+    }
 }
