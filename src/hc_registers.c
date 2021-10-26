@@ -9,6 +9,7 @@ const char* retro_script_hc_get_cpu_name(unsigned type)
     {
     CASE(Z80);
     CASE(6502);
+    CASE(65816);
     default: return NULL;
     }
     #undef CASE
@@ -21,6 +22,7 @@ int retro_script_hc_get_cpu_register_count(unsigned type)
     {
     CASE(Z80);
     CASE(6502);
+    CASE(65816);
     default: return -1;
     }
     #undef CASE
@@ -60,6 +62,16 @@ const char* retro_script_hc_get_cpu_register_name(unsigned cpu_type, unsigned re
         CASE(6502, S);
         CASE(6502, PC);
         CASE(6502, P);
+        
+        CASE(65816, A);
+        CASE(65816, X);
+        CASE(65816, Y);
+        CASE(65816, S);
+        CASE(65816, PC);
+        CASE(65816, P);
+        CASE(65816, DB);
+        CASE(65816, D);
+        CASE(65816, PB);
         default: return NULL;
     }
     #undef COMBINE
