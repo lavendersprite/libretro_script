@@ -4,6 +4,8 @@ This is a zero-dependency middleware library layer intended to lie between a lib
 
 It allows executing scripts that modify the behaviour of or extract information from a running instance. For example, a script might cause enemies to spawn in a particular NES game.
 
+Currently, the only front-end that supports libretro_script is ludo. However, it's extremely easy to add support to a front-end. See the [frontend section below](#Usage%C32in%C32a%C32frontend).
+
 ## Writing a script
 
 Scripts are just [lua](https://www.lua.org/) files. Lua syntax 5.4.3 is supported. How to load a script depends on the frontend. 
@@ -83,6 +85,13 @@ Writes an unsigned byte to the given address
 
 Reads/writes a signed/unsigned 16-bit/32-bit/64-bit little-endian/big-endian value at the given address.
 
+### retro.write_float32_le(address, value)
+### retro.write_float32_be(address, value)
+### retro.write_float64_le(address, value)
+### retro.write_float64_be(address, value)
+
+Reads/writes a 32/64-bit floating point value (represented as per IEEE-754).
+
 ### retro.hc
 
 This is non-nil if the core supports [hcdebug](https://github.com/leiradel/hackable-console), allowing breakpoints and watchpoints. The following fields are available:
@@ -121,9 +130,15 @@ Byte alignment for words in the memory region. Might be 1, 2, 4, 8, etc.
 
 Retrieves an unsigned byte from the given address.
 
+Also available if this is available are all the convenience access methods like
+`mem:read_uint16_le`, `mem:read_float64_be`, etc. (see `retro.read_int16_le` above).
+
 ### \* mem:poke(address, value)
 
 Writes a byte to the given address.
+
+Also available if this is available are all the convenience access methods like
+`mem:write_uint64_be`, `mem:write_float32_le`, etc. (see `retro.write_int16_le` above).
 
 ### \* mem:set_watchpoint(address, length, [type: string,] callback: () -> nil)
 

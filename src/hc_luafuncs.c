@@ -77,6 +77,105 @@ static void* get_userdata_from_self(lua_State* L)
     }
 }
 
+static inline void poke_range(hc_Memory const* mem, uint64_t start, size_t count, const void* vdata, bool reverse)
+{
+    const char* data = (const char*)vdata;
+    for (size_t i = 0; i < count; ++i)
+    {
+        size_t index = reverse ? (count - i - 1) : i;
+        mem->v1.poke(core.hc.userdata,  + index, *data);
+        data++;
+    }
+}
+
+static inline void peek_range(hc_Memory const* mem, uint64_t start, size_t count, void* vdata, bool reverse)
+{
+    char* data = (char*)vdata;
+    for (size_t i = 0; i < count; ++i)
+    {
+        size_t index = reverse ? (count - i - 1) : i;
+        *data = mem->v1.peek(core.hc.userdata,  + index);
+        data++;
+    }
+}
+
+// endianness
+static const int be = 0;
+static const int le = 1;
+
+#define SYS_IS_BIGENDIAN (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+
+#define HC_MEMORY_ACCESS_PREAMBLE(argc) \
+    if (nargs(L) != argc) return 0; \
+    hc_Memory const* mem = (hc_Memory const*)get_userdata_from_self(L); \
+    lua_Integer address = lua_tointeger(L, 2); \
+
+#define DEFINE_HC_MEMORY_READ(lua_type, ctype, le) \
+static int hc_memory_read_##ctype##_##le(lua_State* L) \
+{ \
+    HC_MEMORY_ACCESS_PREAMBLE(2); \
+    ctype v; \
+    peek_range(mem, address, sizeof(v), &v, le == SYS_IS_BIGENDIAN); \
+    lua_push##lua_type(L, v); \
+    return 1; \
+}
+
+#define DEFINE_HC_MEMORY_WRITE(lua_type, ctype, le) \
+static int hc_memory_write_##ctype##_##le(lua_State* L) \
+{ \
+    HC_MEMORY_ACCESS_PREAMBLE(3); \
+    ctype v = lua_to##lua_type(L, 3); \
+    poke_range(mem, address, sizeof(v), &v, le == SYS_IS_BIGENDIAN); \
+    return 0; \
+}
+
+#define DEFINE_HC_MEMORY_ACCESS(ctype, lua_type) \
+    DEFINE_HC_MEMORY_READ(lua_type, ctype, le) \
+    DEFINE_HC_MEMORY_READ(lua_type, ctype, be) \
+    DEFINE_HC_MEMORY_WRITE(lua_type, ctype, le) \
+    DEFINE_HC_MEMORY_WRITE(lua_type, ctype, be) \
+
+static int hc_memory_read_char(lua_State* L)
+{
+    HC_MEMORY_ACCESS_PREAMBLE(2);
+    char v = mem->v1.peek(core.hc.userdata, address);
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+static int hc_memory_read_byte(lua_State* L)
+{
+    HC_MEMORY_ACCESS_PREAMBLE(2);
+    uint8_t v = mem->v1.peek(core.hc.userdata, address);
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+static int hc_memory_write_char(lua_State* L)
+{
+    HC_MEMORY_ACCESS_PREAMBLE(3);
+    lua_Integer v = lua_tointeger(L, 3);
+    mem->v1.poke(core.hc.userdata, address, v);
+    return 0;
+}
+
+static int hc_memory_write_byte(lua_State* L)
+{
+    HC_MEMORY_ACCESS_PREAMBLE(3);
+    lua_Integer v = lua_tointeger(L, 3);
+    mem->v1.poke(core.hc.userdata, address, v);
+    return 0;
+}
+
+DEFINE_HC_MEMORY_ACCESS(int16_t, integer);
+DEFINE_HC_MEMORY_ACCESS(uint16_t, integer);
+DEFINE_HC_MEMORY_ACCESS(int32_t, integer);
+DEFINE_HC_MEMORY_ACCESS(uint32_t, integer);
+DEFINE_HC_MEMORY_ACCESS(int64_t, integer);
+DEFINE_HC_MEMORY_ACCESS(uint64_t, integer);
+DEFINE_HC_MEMORY_ACCESS(float, number);
+DEFINE_HC_MEMORY_ACCESS(double, number);
+
 static int cpu_step_into(lua_State* L)
 {
     if (nargs(L) != 1) return 0;
@@ -452,16 +551,41 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
         lua_pushinteger(L, mem->v1.size);
         lua_setfield(L, -2, "size");
         
+        #define FUNCFIELD(name, f) lua_pushcfunction(L, f); lua_setfield(L, -2, #name);
+        #define MEMFIELD(read, name, type) \
+            FUNCFIELD(read##_##name##_le, hc_memory_##read##_##type##_le); \
+            FUNCFIELD(read##_##name##_be, hc_memory_##read##_##type##_be)
+        
         if (mem->v1.peek)
         {
             lua_pushcfunction(L, memory_peek);
             lua_setfield(L, -2, "peek");
+            FUNCFIELD(read_byte, hc_memory_read_byte);
+            FUNCFIELD(read_char, hc_memory_read_char);
+            MEMFIELD(read, int16, int16_t);
+            MEMFIELD(read, uint16, uint16_t);
+            MEMFIELD(read, int32, int32_t);
+            MEMFIELD(read, uint32, uint32_t);
+            MEMFIELD(read, int64, int64_t);
+            MEMFIELD(read, uint64, uint64_t);
+            MEMFIELD(read, float32, float);
+            MEMFIELD(read, float64, double);
         }
         
         if (mem->v1.poke)
         {
             lua_pushcfunction(L, memory_poke);
             lua_setfield(L, -2, "poke");
+            FUNCFIELD(read_byte, hc_memory_write_byte);
+            FUNCFIELD(read_char, hc_memory_write_char);
+            MEMFIELD(write, int16, int16_t);
+            MEMFIELD(write, uint16, uint16_t);
+            MEMFIELD(write, int32, int32_t);
+            MEMFIELD(write, uint32, uint32_t);
+            MEMFIELD(write, int64, int64_t);
+            MEMFIELD(write, uint64, uint64_t);
+            MEMFIELD(write, float32, float);
+            MEMFIELD(write, float64, double);
         }
         
         if (mem->v1.set_watchpoint)
