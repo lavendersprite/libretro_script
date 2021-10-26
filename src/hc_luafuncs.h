@@ -11,4 +11,4 @@ int retro_script_luafunc_hc_system_get_cpus(lua_State* L);
 // field setters
 
 // sets "main_cpu" and "main_memory"
-void retro_script_luavalue_hc_main_cpu_and_memory(lua_State* L);
+void retro_script_luafield_hc_main_cpu_and_memory(lua_State* L);

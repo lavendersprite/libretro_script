@@ -109,7 +109,7 @@ static void lua_set_libs(lua_State* L)
             REGISTER_FUNC("system_get_breakpoints", retro_script_luafunc_hc_system_get_breakpoints);
             REGISTER_FUNC("system_get_cpus", retro_script_luafunc_hc_system_get_cpus);
             
-            retro_script_luavalue_hc_main_cpu_and_memory(L);
+            retro_script_luafield_hc_main_cpu_and_memory(L);
             
             lua_setfield(L, -2, "hc");
         }
