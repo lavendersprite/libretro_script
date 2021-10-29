@@ -36,9 +36,9 @@ static void on_breakpoint(unsigned id)
         entry->cb(entry->userdata, id);
     }
     // otherwise, forward breakpoint callback to frontend
-    else if (callbacks.breakpoint_cb)
+    else if (frontend_callbacks.breakpoint_cb)
     {
-        callbacks.breakpoint_cb(id);
+        frontend_callbacks.breakpoint_cb(id);
     }
 }
 

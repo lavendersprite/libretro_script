@@ -657,21 +657,21 @@ int retro_script_luafunc_hc_system_get_cpus(lua_State* L)
     return 1;
 }
 
-void retro_script_luafield_hc_main_cpu_and_memory(lua_State* L)
+void retro_script_luavalue_hc_main_cpu_and_memory(lua_State* L)
 {
     for (size_t i = 0; i < system->v1.num_cpus; ++i)
     {
         hc_Cpu const* cpu = system->v1.cpus[i];
         if (cpu && cpu->v1.is_main)
         {
-            (void)push_cpu(cpu);
+            (void)push_cpu(L, cpu);
             lua_setfield(L, -2, "main_cpu");
             
             // add cpu memory if available
             if (cpu->v1.memory_region)
             {
-                (void)push_memory_region(cpu->v1.memory_region);
-                lua_setfield(L, -2, "main_memory")
+                (void)push_memory_region(L, cpu->v1.memory_region);
+                lua_setfield(L, -2, "main_memory");
             }
             return;
         }
