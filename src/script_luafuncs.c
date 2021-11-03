@@ -1,9 +1,7 @@
 #include "script_luafuncs.h"
 #include "memmap.h"
 
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include <lua_5.4.3.h>
 
 int retro_script_luafunc_memory_read_char(lua_State* L)
 {

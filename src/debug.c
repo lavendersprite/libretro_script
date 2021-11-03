@@ -3,9 +3,7 @@
 #ifdef RETRO_SCRIPT_DEBUG
 #include "util.h"
 
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include <lua_5.4.3.h>
 
 typedef void (*retro_script_debug_func_t)();
 

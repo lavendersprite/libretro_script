@@ -1,6 +1,4 @@
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include <lua_5.4.3.h>
 
 #include "script_luafuncs.h"
 #include "hc_hooks.h"

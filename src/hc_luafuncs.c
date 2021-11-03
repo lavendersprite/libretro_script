@@ -7,8 +7,7 @@
 #include <libretro.h>
 #include <hcdebug.h>
 
-#include <lauxlib.h>
-#include <lualib.h>
+#include <lua_5.4.3.h>
 
 #define debugger (retro_script_hc_get_debugger())
 #define system (debugger->v1.system)
@@ -83,7 +82,7 @@ static inline void poke_range(hc_Memory const* mem, uint64_t start, size_t count
     for (size_t i = 0; i < count; ++i)
     {
         size_t index = reverse ? (count - i - 1) : i;
-        mem->v1.poke(core.hc.userdata,  + index, *data);
+        mem->v1.poke(core.hc.userdata, start + index, *data);
         data++;
     }
 }
@@ -94,7 +93,7 @@ static inline void peek_range(hc_Memory const* mem, uint64_t start, size_t count
     for (size_t i = 0; i < count; ++i)
     {
         size_t index = reverse ? (count - i - 1) : i;
-        *data = mem->v1.peek(core.hc.userdata,  + index);
+        *data = mem->v1.peek(core.hc.userdata, start + index);
         data++;
     }
 }

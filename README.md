@@ -140,9 +140,9 @@ Writes a byte to the given address.
 Also available if this is available are all the convenience access methods like
 `mem:write_uint64_be`, `mem:write_float32_le`, etc. (see `retro.write_int16_le` above).
 
-### \* mem:set_watchpoint(address, length, [type: string,] callback: () -> nil)
+### \* mem:set_watchpoint(address, length, [type="w",] callback: () -> nil)
 
-Sets a watchpoint callback for the given address and length. Type may be "w" (trigger on write), "r" (trigger on read), or "wr" (trigger on write or on read).
+Sets a watchpoint callback for the given address and length. Type may be "w" (trigger on write; default), "r" (trigger on read), or "wr" (trigger on write or on read).
 
 Ideally, the value written/read and the address accessed would be available, but hcdebug does not support this yet.
 

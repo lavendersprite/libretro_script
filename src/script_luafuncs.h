@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lua.h>
+#include <lua_5.4.3.h>
 
 #include "hc_luafuncs.h"
 

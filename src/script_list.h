@@ -1,7 +1,8 @@
 #pragma once
 
 #include "libretro_script.h"
-#include <lua.h>
+
+#include <lua_5.4.3.h>
 
 typedef struct script_state
 {
