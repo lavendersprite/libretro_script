@@ -36,7 +36,7 @@ extern struct frontend_callbacks_t
     retro_environment_t retro_environment;
     breakpoint_cb_t breakpoint_cb;
 } retro_script_callbacks;
-#define callbacks retro_script_callbacks
+#define frontend_callbacks retro_script_callbacks
 
 typedef void (*core_init_cb_t)();
 

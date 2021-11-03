@@ -17,7 +17,7 @@
 #define INTERCEPT_HANDLER(name) _interceptor_##name
 
 struct core_t core;
-struct frontend_callbacks_t callbacks;
+struct frontend_callbacks_t frontend_callbacks;
 
 enum
 {
@@ -58,7 +58,7 @@ uint32_t retro_script_init()
     if (state == RS_DEINIT)
     {
         memset(&core, 0, sizeof(core));
-        memset(&callbacks, 0, sizeof(callbacks));
+        memset(&frontend_callbacks, 0, sizeof(frontend_callbacks));
         retro_script_clear_memory_map();
     }
     else
@@ -119,12 +119,12 @@ static bool retro_environment(unsigned int cmd, void* data)
         break;
     }
     
-    return callbacks.retro_environment(cmd, data) || result;
+    return frontend_callbacks.retro_environment(cmd, data) || result;
 }
 
 static void INTERCEPT_HANDLER(retro_set_environment)(retro_environment_t cb)
 {
-    callbacks.retro_environment = cb;
+    frontend_callbacks.retro_environment = cb;
     core.retro_set_environment(retro_environment);
 }
 
