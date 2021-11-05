@@ -15,6 +15,8 @@ An example script (for `Castlevania (U).nes`):
 ```lua
 print("castlevania dagger & infinite hearts hack")
 
+local retro = require "retro"
+
 retro.on_run_begin(
     -- callback executes once per frame
     function ()

@@ -57,8 +57,20 @@ DEF_SET_SCRIPT_REF(on_run_end);
 static void lua_set_libs(lua_State* L)
 {
     // base libs
-    const luaL_Reg lib = { "base", luaopen_base };
-    lib.func(L);
+    lua_pushcfunction(L,luaopen_base);
+    lua_call(L,0,0);
+    lua_pushcfunction(L,luaopen_math);
+    lua_call(L,0,0);
+    lua_pushcfunction(L,luaopen_string);
+    lua_call(L,0,0);
+    lua_pushcfunction(L,luaopen_table);
+    lua_call(L,0,0);
+    lua_pushcfunction(L,luaopen_package);
+    lua_call(L,0,0);
+    lua_pushcfunction(L,luaopen_utf8);
+    lua_call(L,0,0);
+    lua_pushcfunction(L,luaopen_coroutine);
+    lua_call(L,0,0);
     lua_settop(L, 0);
     
         // register c functions
@@ -112,8 +124,12 @@ static void lua_set_libs(lua_State* L)
             lua_setfield(L, -2, "hc");
         }
         
-        lua_setglobal(L, "retro");
+        // set this as package.loaded["retro"]
+        luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
+        lua_rotate(L, -2, 1);
+        lua_setfield(L, -2, "retro");
     }
+    lua_settop(L, 0);
 }
 
 void retro_script_execute_cb(script_state_t* script, int ref)
@@ -128,7 +144,7 @@ void retro_script_execute_cb(script_state_t* script, int ref)
     lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
     if (lua_isfunction(L, -1))
     {
-        lua_call(L, 0, 0);
+        lua_pcall(L, 0, 0, 0);
     }
     else
     {
