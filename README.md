@@ -8,7 +8,7 @@ Currently, the only front-end that supports libretro_script is ludo. However, it
 
 ## Writing a script
 
-Scripts are just [lua](https://www.lua.org/) files. Lua syntax 5.4.3 is supported. How to load a script depends on the frontend. 
+Scripts are just [lua](https://www.lua.org/) files. Lua syntax 5.4.3 with the [BitOp extension](http://bitop.luajit.org/index.html) is supported. How to load a script depends on the frontend. 
 
 An example script (for `Castlevania (U).nes`):
 
@@ -16,6 +16,7 @@ An example script (for `Castlevania (U).nes`):
 print("castlevania dagger & infinite hearts hack")
 
 local retro = require "retro"
+local bit = require "bit"
 
 retro.on_run_begin(
     -- callback executes once per frame
@@ -24,7 +25,7 @@ retro.on_run_begin(
         if game_mode == 0x5 then
             retro.write_byte(0x064, 0x02) -- enable 3x shot
             retro.write_byte(0x071, 0x63) -- 99 hearts
-            retro.write_byte(0x15B, 0x08) -- subweapon dagger
+            retro.write_byte(0x15B, bit.lshift(1, 3)) -- subweapon dagger
         end
     end
 )

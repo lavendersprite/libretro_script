@@ -10,6 +10,10 @@
 #include "core.h"
 #include "util.h"
 
+// declaration for bitops lib.
+#define LUA_BITLIBNAME "bit"
+LUALIB_API int luaopen_bit(lua_State *L);
+
 // clear all scripts when a core is loaded
 ON_INIT()
 {
@@ -72,13 +76,17 @@ static void lua_set_libs(lua_State* L, const char* default_package_path)
     luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, true);
     luaL_requiref(L, LUA_UTF8LIBNAME, luaopen_utf8, true);
     luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, true);
-    luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, true);
+    luaL_requiref(L, LUA_BITLIBNAME, luaopen_bit, false);
     
-    if (default_package_path && lua_istable(L, -1))
+    // package gets special attention, as we set the path manually.
     {
-        // set package.path
-        lua_pushstring(L, default_package_path);
-        lua_setfield(L, -2, "path");
+        luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, true);
+        if (default_package_path && lua_istable(L, -1))
+        {
+            // set package.path
+            lua_pushstring(L, default_package_path);
+            lua_setfield(L, -2, "path");
+        }
     }
     lua_settop(L, 0);
     

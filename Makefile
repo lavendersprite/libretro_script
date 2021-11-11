@@ -33,8 +33,10 @@ SCRIPT_SOURCES=$(wildcard src/*.c)
 SCRIPT_OBJECTS=$(patsubst %.c,%.o,$(SCRIPT_SOURCES))
 LUA_SOURCES=$(wildcard deps/lua-5.4.3/*.c)
 LUA_OBJECTS=$(patsubst %.c,%.o,$(LUA_SOURCES))
+LUA_EXTENSION_SOURCES=deps/LuaBitOp-1.0.2/bit.c
+LUA_EXTENSION_OBJECTS=$(patsubst %.c,%.o,$(LUA_EXTENSION_SOURCES))
 
-OBJECTS=$(LUA_OBJECTS) $(SCRIPT_OBJECTS)
+OBJECTS=$(LUA_OBJECTS) $(LUA_EXTENSION_OBJECTS) $(SCRIPT_OBJECTS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -55,7 +57,7 @@ shlib: $(SHLIB)
 all: $(SHLIB) $(LIB)
 
 clean:
-	rm -f $(SCRIPT_OBJECTS) $(LUA_OBJECTS) $(SHLIB) $(LIB)
+	rm -f $(SCRIPT_OBJECTS) $(LUA_EXTENSION_OBJECTS) $(LUA_OBJECTS) $(SHLIB) $(LIB)
 
 clean-lib:
 	rm -f $(SCRIPT_OBJECTS) $(SHLIB) $(LIB)
