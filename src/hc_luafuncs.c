@@ -58,16 +58,35 @@ static bool lua_table_for_data(lua_State* L, void const* ptr)
     }
 }
 
+static void assert_argc_range(lua_State* L, int lower, int upper)
+{
+    const int argc = nargs(L);
+    if (argc < lower || argc >= upper)
+    {
+        luaL_error(L, "Invalid number of arguments (%d); expected %d-%d args.", argc, lower, upper);
+    }
+}
+
+static void assert_argc(lua_State* L, int count)
+{
+    const int argc = nargs(L);
+    if (argc != count)
+    {
+        luaL_error(L, "Invalid number of arguments (%d); expected %d", argc, count);
+    }
+}
+
 // retrieves userdata field from deepest elt on stack.
+// luaL_error is called on failure.
 static void* get_userdata_from_self(lua_State* L)
 {
-    if (lua_gettop(L) <= 0) return NULL;
-    if (!lua_istable(L, 1)) return NULL;
+    if (lua_gettop(L) <= 0) goto FAIL;
+    if (!lua_istable(L, 1)) goto FAIL;
     
     if (lua_getfield(L, 1, USERDATA_FIELD) != LUA_TLIGHTUSERDATA)
     {
         lua_pop(L, 1);
-        return NULL;
+        goto FAIL;
     }
     else
     {
@@ -75,6 +94,10 @@ static void* get_userdata_from_self(lua_State* L)
         lua_pop(L, 1);
         return v;
     }
+    
+FAIL:
+    luaL_error(L, "invalid 'self' argument.");
+    return NULL;
 }
 
 static inline void poke_range(hc_Memory const* mem, uint64_t start, size_t count, const void* vdata, bool reverse)
@@ -106,7 +129,7 @@ static const int le = 1;
 #define SYS_IS_BIGENDIAN (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 
 #define HC_MEMORY_ACCESS_PREAMBLE(argc) \
-    if (nargs(L) != argc) return 0; \
+    assert_argc(L, argc); \
     hc_Memory const* mem = (hc_Memory const*)get_userdata_from_self(L); \
     lua_Integer address = lua_tointeger(L, 2); \
 
@@ -178,7 +201,7 @@ DEFINE_HC_MEMORY_ACCESS(double, number);
 
 static int cpu_step_into(lua_State* L)
 {
-    if (nargs(L) != 1) return 0;
+    assert_argc(L, 1);
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu || !cpu->v1.step_into) return 0;
@@ -189,7 +212,7 @@ static int cpu_step_into(lua_State* L)
 
 static int cpu_step_over(lua_State* L)
 {
-    if (nargs(L) != 1) return 0;
+    assert_argc(L, 1);
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu || !cpu->v1.step_over) return 0;
@@ -200,7 +223,7 @@ static int cpu_step_over(lua_State* L)
 
 static int cpu_step_out(lua_State* L)
 {
-    if (nargs(L) != 1) return 0;
+    assert_argc(L, 1);
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu || !cpu->v1.step_out) return 0;
@@ -211,7 +234,7 @@ static int cpu_step_out(lua_State* L)
 
 static int memory_peek(lua_State* L)
 {
-    if (nargs(L) != 2) return 0;
+    assert_argc(L, 2);
     
     hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
     if (!memory || !memory->v1.peek) return 0;
@@ -225,7 +248,7 @@ static int memory_peek(lua_State* L)
 
 static int memory_poke(lua_State* L)
 {
-    if (nargs(L) != 3) return 0;
+    assert_argc(L, 3);
     
     hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
     if (!memory || !memory->v1.poke) return 0;
@@ -305,7 +328,7 @@ static void on_register_breakpoint(retro_script_hc_breakpoint_userdata u, unsign
 //      ret: value
 static int get_register(lua_State* L)
 {
-    if (nargs(L) != 1) return 0;
+    assert_argc(L, 1);
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu) return 0;
@@ -331,7 +354,7 @@ static int get_register(lua_State* L)
 // lua args: self, value
 static int set_register(lua_State* L)
 {
-    if (nargs(L) != 2) return 0;
+    assert_argc(L, 2);
     if (!lua_isinteger(L, 2)) return 0;
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
@@ -363,7 +386,7 @@ static int set_register(lua_State* L)
 // lua args: self, callback
 static int set_register_breakpoint(lua_State* L)
 {
-    if (nargs(L) != 2) return 0;
+    assert_argc(L, 2);
     if (!lua_isfunction(L, 2)) return 0;
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
@@ -405,7 +428,7 @@ static int set_register_breakpoint(lua_State* L)
 //      ret: breakpoint id
 static int memory_set_watchpoint(lua_State* L)
 {
-    if (nargs(L) != 4 && nargs(L) != 5) return 0;
+    assert_argc_range(L, 4, 5);
     if (!lua_isfunction(L, -1)) return 0;
     
     hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
@@ -439,7 +462,7 @@ static int memory_set_watchpoint(lua_State* L)
 //  ret: breakpoint id
 static int breakpoint_enable(lua_State* L)
 {
-    if (nargs(L) != 3 && nargs(L) != 2) return 0;
+    assert_argc_range(L, 2, 3);
     
     hc_Breakpoint const* breakpoint = (hc_Breakpoint const*)get_userdata_from_self(L);
     if (!breakpoint || !breakpoint->v1.enable) return 0;
@@ -468,7 +491,7 @@ static int breakpoint_enable(lua_State* L)
 //  ret: breakpoint id
 static int cpu_set_exec_breakpoint(lua_State* L)
 {
-    if (nargs(L) != 3) return 0;
+    assert_argc(L, 3);
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
     if (!cpu || !cpu->v1.set_exec_breakpoint) return 0;
