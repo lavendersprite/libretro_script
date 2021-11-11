@@ -22,58 +22,67 @@ ON_DEINIT()
     script_clear_all();
 }
 
-static int set_ref(lua_State* L)
+// default lua error response
+static void lua_print_error_message(retro_script_id_t script_id, int lua_errorcode, const char* errmsg)
 {
-    int n = lua_gettop(L);
-    if (n > 0 && lua_isfunction(L, -1))
-    {
-        // copy the function to the registry
-        lua_pushvalue(L, -1);
-        return luaL_ref(L, LUA_REGISTRYINDEX);
-    }
-    else
-    {
-        return LUA_NOREF;
-    }
+    printf("libretro_script lua error (code %d): \"%s\"\n", lua_errorcode, errmsg);
 }
 
+// lua error response (customizable)
+static retro_script_lua_on_error_t lua_on_error = lua_print_error_message;
+
 #define SET_SCRIPT_REF(ref) retro_script_luafunc_set_##ref
-#define DEF_SET_SCRIPT_REF(REF) \
+#define DEF_SET_SCRIPT_REF(REF, ALLOW_LIST) \
 static int SET_SCRIPT_REF(REF)(struct lua_State* L) \
 {   \
     script_state_t* script = script_find_lua(L); \
     if (script) \
     {   \
-        script->refs.REF = set_ref(L);   \
+        if (script->refs.REF == LUA_NOREF) \
+        { \
+            lua_newtable(L); \
+            script->refs.REF = luaL_ref(L, LUA_REGISTRYINDEX);\
+        } \
+        lua_rawgeti(L, LUA_REGISTRYINDEX, script->refs.REF); \
+        lua_rotate(L, -2, 1); \
+        if (!ALLOW_LIST) \
+        { \
+            lua_rawseti(L, -2, 1); \
+        } \
+        else { \
+            int idx = lua_rawlen(L, -2) + 1; \
+            lua_rawseti(L, -2, idx); \
+        } \
+        lua_pop(L, 1); \
     }   \
     return 0; \
 }   
 
-DEF_SET_SCRIPT_REF(on_run_begin);
-DEF_SET_SCRIPT_REF(on_run_end);
+DEF_SET_SCRIPT_REF(on_run_begin, true);
+DEF_SET_SCRIPT_REF(on_run_end, true);
 
 // sets the built-in functions for lua,
 // including the libretro-script functions.
-static void lua_set_libs(lua_State* L)
+static void lua_set_libs(lua_State* L, const char* default_package_path)
 {
     // base libs
-    lua_pushcfunction(L,luaopen_base);
-    lua_call(L,0,0);
-    lua_pushcfunction(L,luaopen_math);
-    lua_call(L,0,0);
-    lua_pushcfunction(L,luaopen_string);
-    lua_call(L,0,0);
-    lua_pushcfunction(L,luaopen_table);
-    lua_call(L,0,0);
-    lua_pushcfunction(L,luaopen_package);
-    lua_call(L,0,0);
-    lua_pushcfunction(L,luaopen_utf8);
-    lua_call(L,0,0);
-    lua_pushcfunction(L,luaopen_coroutine);
-    lua_call(L,0,0);
+    luaL_requiref(L, LUA_GNAME, luaopen_base, true);
+    luaL_requiref(L, LUA_MATHLIBNAME, luaopen_math, true);
+    luaL_requiref(L, LUA_STRLIBNAME, luaopen_string, true);
+    luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, true);
+    luaL_requiref(L, LUA_UTF8LIBNAME, luaopen_utf8, true);
+    luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, true);
+    luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, true);
+    
+    if (default_package_path && lua_istable(L, -1))
+    {
+        // set package.path
+        lua_pushstring(L, default_package_path);
+        lua_setfield(L, -2, "path");
+    }
     lua_settop(L, 0);
     
-        // register c functions
+    // register c functions
     #define REGISTER_FUNC(name, func) \
         lua_pushcfunction(L, func); \
         lua_setfield(L, -2, name)
@@ -91,6 +100,11 @@ static void lua_set_libs(lua_State* L)
     // create a global 'retro' 
     {
         lua_newtable(L);
+        
+        REGISTER_FUNC("input_poll", retro_script_luafunc_input_poll);
+        REGISTER_FUNC("input_state", retro_script_luafunc_input_state);
+        
+        retro_script_luafield_constants(L);
         
         REGISTER_FUNC("read_char", retro_script_luafunc_memory_read_char);
         REGISTER_FUNC("write_char", retro_script_luafunc_memory_write_char);
@@ -132,6 +146,62 @@ static void lua_set_libs(lua_State* L)
     lua_settop(L, 0);
 }
 
+RETRO_SCRIPT_API
+void retro_script_on_lua_error(retro_script_lua_on_error_t cb)
+{
+    lua_on_error = cb;
+}
+
+// helper for retro_script_lua_pcall
+static void pop_error_and_return_nils(lua_State* L, int retc)
+{
+    // one error value on stack. Pop it.
+    lua_pop(L, 1);
+    
+    // supplement stack with nils
+    for (int i = 0; i < retc; ++i)
+    {
+        lua_pushnil(L);
+    }
+}
+
+void retro_script_lua_pcall(lua_State* L, int argc, int retc)
+{
+    const int result = lua_pcall(L, argc, retc, 0);
+    if (result != LUA_OK)
+    {
+        if (lua_on_error)
+        {
+            const script_state_t* script = script_find_lua(L);
+            const retro_script_id_t script_id = script ? script->id : 0;
+            
+            // get error string
+            char* lua_errmsg = NULL;
+            const char* errmsg = NULL;
+            
+            if (!lua_isstring(L, -1))
+            {
+                errmsg = "(non-string error)";
+            }
+            else
+            {
+                lua_errmsg = retro_script_strdup(lua_tostring(L, -1));
+                errmsg = "(insufficient memory to store error string)";
+            }
+            
+            pop_error_and_return_nils(L, retc);
+        
+            lua_on_error(script_id, result, lua_errmsg ? lua_errmsg : errmsg);
+            
+            if (lua_errmsg) free(lua_errmsg);
+        }
+        else
+        {
+            pop_error_and_return_nils(L, retc);
+        }
+    }
+}
+
 void retro_script_execute_cb(script_state_t* script, int ref)
 {
     if (!script || ref == LUA_NOREF || ref == LUA_REFNIL)
@@ -144,11 +214,18 @@ void retro_script_execute_cb(script_state_t* script, int ref)
     lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
     if (lua_isfunction(L, -1))
     {
-        lua_pcall(L, 0, 0, 0);
+        retro_script_lua_pcall(L, 0, 0);
     }
-    else
+    else if (lua_istable(L, -1))
     {
-        lua_pop(L, 1);
+        const int len = lua_rawlen(L, -1);
+        const int top = lua_gettop(L);
+        for (int i = 1; i <= len; ++i)
+        {
+            lua_rawgeti(L, -1, i);
+            retro_script_lua_pcall(L, 0, 0);
+            lua_settop(L, top);
+        }
     }
 }
 
@@ -167,7 +244,19 @@ RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua_special(const char* scr
     }
     lua_State* L = script_state->L;
     
-    lua_set_libs(L);
+    char* p, *f, *packagepath = NULL;
+    retro_script_split_path_file(&p, &f, script_path);
+    if (f) free(f);
+    if (p)
+    {
+        size_t plen = strlen(p);
+        packagepath = malloc(plen + 1 + strlen("?.lua"));
+        memcpy(packagepath, p, plen);
+        strcpy(packagepath + plen, "?.lua");
+        free(p);
+    }
+    lua_set_libs(L, p ? packagepath : NULL);
+    if (packagepath) free(packagepath);
     
     int no_error = 1; // becomes 0 if error.
     

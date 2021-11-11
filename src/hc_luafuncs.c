@@ -3,6 +3,7 @@
 #include "hashmap.h"
 #include "core.h"
 #include "hc_registers.h"
+#include "script.h"
 
 #include <libretro.h>
 #include <hcdebug.h>
@@ -242,17 +243,7 @@ static void pcall_function_from_ref(lua_State* L, lua_Integer ref, const int arg
     lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
     if (lua_isfunction(L, -1))
     {
-        if (lua_pcall(L, argc, retc, 0) != LUA_OK)
-        {
-            // one error value on stack. Pop it.
-            lua_pop(L, 1);
-            
-            // supplement stack with nils
-            for (size_t i = 0; i < retc; ++i)
-            {
-                lua_pushnil(L);
-            }
-        }
+        retro_script_lua_pcall(L, argc, retc);
     }
     else
     {
@@ -782,6 +773,7 @@ int retro_script_luafunc_hc_system_get_cpus(lua_State* L)
 
 void retro_script_luafield_hc_main_cpu_and_memory(lua_State* L)
 {
+    if (!debugger || !system) return;
     for (size_t i = 0; i < system->v1.num_cpus; ++i)
     {
         hc_Cpu const* cpu = system->v1.cpus[i];

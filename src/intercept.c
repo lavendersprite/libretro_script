@@ -135,9 +135,23 @@ static void INTERCEPT_HANDLER(retro_init)()
     state = CORE_INIT;
 }
 
+static void INTERCEPT_HANDLER(retro_set_input_poll)(retro_input_poll_t cb)
+{
+    frontend_callbacks.retro_input_poll = cb;
+    core.retro_set_input_poll(cb);
+}
+
+static void INTERCEPT_HANDLER(retro_set_input_state)(retro_input_state_t cb)
+{
+    frontend_callbacks.retro_input_state = cb;
+    core.retro_set_input_state(cb);
+}
+
 INTERCEPT(retro_set_environment) { return (core.retro_set_environment = f), INTERCEPT_HANDLER(retro_set_environment); }
 INTERCEPT(retro_get_memory_data) { return (core.retro_get_memory_data = f), f; }
 INTERCEPT(retro_get_memory_size) { return (core.retro_get_memory_size = f), f; }
 INTERCEPT(retro_init)            { return (core.retro_init = f), INTERCEPT_HANDLER(retro_init); }
 INTERCEPT(retro_deinit)          { return (core.retro_deinit = f), f; }
 INTERCEPT(retro_run)             { return (core.retro_run = f), INTERCEPT_HANDLER(retro_run); }
+INTERCEPT(retro_set_input_poll)  { return (core.retro_set_input_poll = f), INTERCEPT_HANDLER(retro_set_input_poll); }
+INTERCEPT(retro_set_input_state) { return (core.retro_set_input_state = f), INTERCEPT_HANDLER(retro_set_input_state); }

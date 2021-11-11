@@ -3,6 +3,7 @@
 
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdio.h>
 
 static script_state_t* script_states = NULL;
 

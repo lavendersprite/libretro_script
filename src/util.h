@@ -62,3 +62,26 @@ FORCEINLINE char* retro_script_strdup(const char* s)
     memcpy(t, s, len);
     return t;
 }
+
+FORCEINLINE char* retro_script_strndup(const char* s, size_t n)
+{
+    // OPTIMIZE: use strlen_s if C11.
+    size_t maxlen = strlen(s);
+    size_t len = (n > maxlen) ? maxlen : n;
+    char* t = malloc_array(char, len + 1);
+    if (!t) return NULL;
+    memcpy(t, s, len);
+    t[len] = 0;
+    return t;
+}
+
+// https://stackoverflow.com/a/1575314
+// caller is responsible for freeing *p and *f.
+FORCEINLINE void retro_script_split_path_file(char** p, char** f, const char *pf)
+{
+    const char *slash = pf, *next;
+    while ((next = strpbrk(slash + 1, "\\/"))) slash = next;
+    if (pf != slash) slash++;
+    *f = retro_script_strdup(slash);
+    *p = strndup(pf, slash - pf);
+}

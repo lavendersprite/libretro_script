@@ -42,6 +42,13 @@ runs callback directly before each update tick.
 
 runs callback directly after each update tick.
 
+### retro.input_poll()
+### retro.input_state(port, device, index, id)
+
+Polls / gets input from frontend. See [libretro.h](./deps/libretro.h).
+
+Constants from `libretro.h` are available, such as `retro.RETRO_DEVICE_JOYPAD`, `retro.RETRO_DEVICE_JOYPAD`, `RETRO_DEVICE_ID_JOYPAD_SELECT`, etc.
+
 ### retro.read_char(address)
 
 Reads a signed byte (-128 to +127) from the given address.

@@ -14,6 +14,8 @@ extern struct core_t
     RETRO_SCRIPT_DECLT(retro_init) retro_init;
     RETRO_SCRIPT_DECLT(retro_deinit) retro_deinit;
     RETRO_SCRIPT_DECLT(retro_run) retro_run;
+    RETRO_SCRIPT_DECLT(retro_set_input_poll) retro_set_input_poll;
+    RETRO_SCRIPT_DECLT(retro_set_input_state) retro_set_input_state;
     
     // this is set by the backend via retro_set_environment callback.
     retro_get_proc_address_t retro_get_proc_address;
@@ -34,6 +36,8 @@ typedef void (* breakpoint_cb_t)(unsigned id);
 extern struct frontend_callbacks_t
 {
     retro_environment_t retro_environment;
+    retro_input_poll_t retro_input_poll;
+    retro_input_state_t retro_input_state;
     breakpoint_cb_t breakpoint_cb;
 } retro_script_callbacks;
 #define frontend_callbacks retro_script_callbacks

@@ -72,6 +72,8 @@ RETRO_SCRIPT_INTERCEPT(size_t, retro_get_memory_size, unsigned id);
 RETRO_SCRIPT_INTERCEPT(void, retro_init, void);
 RETRO_SCRIPT_INTERCEPT(void, retro_deinit, void);
 RETRO_SCRIPT_INTERCEPT(void, retro_run, void);
+RETRO_SCRIPT_INTERCEPT(void, retro_set_input_poll, retro_input_poll_t);
+RETRO_SCRIPT_INTERCEPT(void, retro_set_input_state, retro_input_state_t);
 
 typedef uint32_t retro_script_id_t;
 
@@ -89,6 +91,10 @@ RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua(const char* path_to_scr
 struct lua_State;
 typedef int (RETRO_CALLCONV *retro_script_setup_lua_t)(struct lua_State* l);
 RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua_special(const char* path_to_script, retro_script_setup_lua_t);
+
+// set callback to be invoked on a lua error.
+typedef void (RETRO_CALLCONV *retro_script_lua_on_error_t)(retro_script_id_t, int lua_error_code, const char* error_message);
+RETRO_SCRIPT_API void retro_script_on_lua_error(retro_script_lua_on_error_t);
 
 #ifdef __cplusplus
 }
