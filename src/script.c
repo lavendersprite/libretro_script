@@ -76,6 +76,7 @@ static void lua_set_libs(lua_State* L, const char* default_package_path)
     luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, true);
     luaL_requiref(L, LUA_UTF8LIBNAME, luaopen_utf8, true);
     luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, true);
+    luaL_requiref(L, LUA_DBLIBNAME, luaopen_debug, true);
     luaL_requiref(L, LUA_BITLIBNAME, luaopen_bit, false);
     
     // package gets special attention, as we set the path manually.
@@ -288,16 +289,16 @@ RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua_special(const char* scr
         lua_pop(L, 1);
     }
     
-    if (no_error) no_error = luaL_dofile(L, script_path);
+    if (no_error) no_error = !luaL_dofile(L, script_path);
     if (no_error)
+    {
+        return script_state->id;
+    }
+    else
     {
         set_error(lua_tostring(L, -1));
         lua_pop(L, 1);
         script_free(script_state->id);
         return 0;
-    }
-    else
-    {
-        return script_state->id;
     }
 }

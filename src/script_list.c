@@ -1,8 +1,7 @@
 #include "script_list.h"
 #include "util.h"
 
-#include <lua.h>
-#include <lauxlib.h>
+#include <lua_5.4.3.h>
 #include <stdio.h>
 
 static script_state_t* script_states = NULL;

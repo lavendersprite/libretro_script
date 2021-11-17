@@ -85,3 +85,13 @@ FORCEINLINE void retro_script_split_path_file(char** p, char** f, const char *pf
     *f = retro_script_strdup(slash);
     *p = strndup(pf, slash - pf);
 }
+
+struct lua_State;
+
+// like lua_getfield, but bypasses metatable
+int retro_script_lua_rawgetfield(struct lua_State* L, int index, const char* field);
+
+void retro_script_lua_rawsetfield(struct lua_State* L, int index, const char* field);
+
+#define lua_rawgetfield retro_script_lua_rawgetfield
+#define lua_rawsetfield retro_script_lua_rawsetfield

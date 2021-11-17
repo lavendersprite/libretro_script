@@ -83,7 +83,7 @@ static void* get_userdata_from_self(lua_State* L)
     if (lua_gettop(L) <= 0) goto FAIL;
     if (!lua_istable(L, 1)) goto FAIL;
     
-    if (lua_getfield(L, 1, USERDATA_FIELD) != LUA_TLIGHTUSERDATA)
+    if (lua_rawgetfield(L, 1, USERDATA_FIELD) != LUA_TLIGHTUSERDATA)
     {
         lua_pop(L, 1);
         goto FAIL;
@@ -334,7 +334,7 @@ static int get_register(lua_State* L)
     if (!cpu) return 0;
     
     lua_Integer idx;
-    if (lua_getfield(L, 1, "_idx") == LUA_TNUMBER)
+    if (lua_rawgetfield(L, 1, "_idx") == LUA_TNUMBER)
     {
         idx = lua_tointeger(L, -1);
     }
@@ -361,7 +361,7 @@ static int set_register(lua_State* L)
     if (!cpu) return 0;
     
     lua_Integer idx;
-    if (lua_getfield(L, 0, "_idx") == LUA_TNUMBER)
+    if (lua_rawgetfield(L, 0, "_idx") == LUA_TNUMBER)
     {
         idx = lua_tointeger(L, -1);
         lua_pop(L, 1);
@@ -393,7 +393,7 @@ static int set_register_breakpoint(lua_State* L)
     if (!cpu) return 0;
     
     lua_Integer idx;
-    if (lua_getfield(L, 0, "_idx") == LUA_TNUMBER)
+    if (lua_rawgetfield(L, 0, "_idx") == LUA_TNUMBER)
     {
         idx = lua_tointeger(L, -1);
         lua_pop(L, 1);
@@ -518,18 +518,18 @@ static int push_breakpoint(lua_State* L, hc_Breakpoint const* breakpoint)
     if (lua_table_for_data(L, breakpoint))
     {
         lua_pushlightuserdata(L, (void*)breakpoint);
-        lua_setfield(L, -2, USERDATA_FIELD);
+        lua_rawsetfield(L, -2, USERDATA_FIELD);
         
         if (breakpoint->v1.description)
         {
             lua_pushstring(L, breakpoint->v1.description);
-            lua_setfield(L, -2, "description");
+            lua_rawsetfield(L, -2, "description");
         }
         
         if (breakpoint->v1.enable)
         {
             lua_pushcfunction(L, breakpoint_enable);
-            lua_setfield(L, -2, "enable");
+            lua_rawsetfield(L, -2, "enable");
         }
     }
     
@@ -541,30 +541,30 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
     if (lua_table_for_data(L, mem))
     {
         lua_pushlightuserdata(L, (void*)mem);
-        lua_setfield(L, -2, USERDATA_FIELD);
+        lua_rawsetfield(L, -2, USERDATA_FIELD);
         
         if (mem->v1.id)
         {
             lua_pushstring(L, mem->v1.id);
-            lua_setfield(L, -2, "id");
+            lua_rawsetfield(L, -2, "id");
         }
         
         if (mem->v1.description)
         {
             lua_pushstring(L, mem->v1.description);
-            lua_setfield(L, -2, "id");
+            lua_rawsetfield(L, -2, "id");
         }
         
         lua_pushinteger(L, mem->v1.alignment);
-        lua_setfield(L, -2, "alignment");
+        lua_rawsetfield(L, -2, "alignment");
         
         lua_pushinteger(L, mem->v1.base_address);
-        lua_setfield(L, -2, "base_address");
+        lua_rawsetfield(L, -2, "base_address");
         
         lua_pushinteger(L, mem->v1.size);
-        lua_setfield(L, -2, "size");
+        lua_rawsetfield(L, -2, "size");
         
-        #define FUNCFIELD(name, f) lua_pushcfunction(L, f); lua_setfield(L, -2, #name);
+        #define FUNCFIELD(name, f) lua_pushcfunction(L, f); lua_rawsetfield(L, -2, #name);
         #define MEMFIELD(read, name, type) \
             FUNCFIELD(read##_##name##_le, hc_memory_##read##_##type##_le); \
             FUNCFIELD(read##_##name##_be, hc_memory_##read##_##type##_be)
@@ -572,7 +572,7 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
         if (mem->v1.peek)
         {
             lua_pushcfunction(L, memory_peek);
-            lua_setfield(L, -2, "peek");
+            lua_rawsetfield(L, -2, "peek");
             FUNCFIELD(read_byte, hc_memory_read_byte);
             FUNCFIELD(read_char, hc_memory_read_char);
             MEMFIELD(read, int16, int16_t);
@@ -588,7 +588,7 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
         if (mem->v1.poke)
         {
             lua_pushcfunction(L, memory_poke);
-            lua_setfield(L, -2, "poke");
+            lua_rawsetfield(L, -2, "poke");
             FUNCFIELD(read_byte, hc_memory_write_byte);
             FUNCFIELD(read_char, hc_memory_write_char);
             MEMFIELD(write, int16, int16_t);
@@ -604,7 +604,7 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
         if (mem->v1.set_watchpoint)
         {
             lua_pushcfunction(L, memory_set_watchpoint);
-            lua_setfield(L, -2, "set_watchpoint");
+            lua_rawsetfield(L, -2, "set_watchpoint");
         }
         
         lua_createtable(L, mem->v1.num_break_points, 0);
@@ -616,7 +616,7 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
                 lua_rawseti(L, -2, i + 1);
             }
         }
-        lua_setfield(L, -2, "breakpoints");
+        lua_rawsetfield(L, -2, "breakpoints");
     }
     
     return 1;
@@ -627,22 +627,22 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
     if (lua_table_for_data(L, cpu))
     {
         lua_pushlightuserdata(L, (void*)cpu);
-        lua_setfield(L, -2, USERDATA_FIELD);
+        lua_rawsetfield(L, -2, USERDATA_FIELD);
                 
         if (cpu->v1.description)
         {
             lua_pushstring(L, cpu->v1.description);
-            lua_setfield(L, -2, "description");
+            lua_rawsetfield(L, -2, "description");
         }
         
         lua_pushinteger(L, cpu->v1.type);
-        lua_setfield(L, -2, "type");
+        lua_rawsetfield(L, -2, "type");
         
         const char* cpu_name = retro_script_hc_get_cpu_name(cpu->v1.type);
         if (cpu_name)
         {
             lua_pushstring(L, cpu_name);
-            lua_setfield(L, -2, "name");
+            lua_rawsetfield(L, -2, "name");
         }
         
         // registers
@@ -655,80 +655,80 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
                 lua_newtable(L);
                 
                 lua_pushlightuserdata(L, (void*)cpu);
-                lua_setfield(L, -2, USERDATA_FIELD);
+                lua_rawsetfield(L, -2, USERDATA_FIELD);
                 
                 lua_pushinteger(L, i);
-                lua_setfield(L, -2, "_idx");
+                lua_rawsetfield(L, -2, "_idx");
                 
                 const char* name = retro_script_hc_get_cpu_register_name(cpu->v1.type, i);
                 if (name)
                 {
                     lua_pushstring(L, name);
-                    lua_setfield(L, -2, "name");
+                    lua_rawsetfield(L, -2, "name");
                     
                     // register name as key for register, e.g. registers.X
                     if (*name)
                     {
                         lua_pushvalue(L, -1);
-                        lua_setfield(L, -3, name);
+                        lua_rawsetfield(L, -3, name);
                     }
                 }
                     
                 if (cpu->v1.get_register)
                 {
                     lua_pushcfunction(L, get_register);
-                    lua_setfield(L, -2, "get");
+                    lua_rawsetfield(L, -2, "get");
                 }
                 
                 if (cpu->v1.set_register)
                 {
                     lua_pushcfunction(L, set_register);
-                    lua_setfield(L, -2, "set");
+                    lua_rawsetfield(L, -2, "set");
                 }
                 
                 if (cpu->v1.set_reg_breakpoint)
                 {
                     lua_pushcfunction(L, set_register_breakpoint);
-                    lua_setfield(L, -2, "watch");
+                    lua_rawsetfield(L, -2, "watch");
                 }
                 
                 lua_rawseti(L, -2, i + 1);
             }
             
-            lua_setfield(L, -2, "registers");
+            lua_rawsetfield(L, -2, "registers");
         }
         
         lua_pushboolean(L, cpu->v1.is_main);
-        lua_setfield(L, -2, "is_main");
+        lua_rawsetfield(L, -2, "is_main");
         
         if (cpu->v1.memory_region)
         {
             push_memory_region(L, cpu->v1.memory_region);
-            lua_setfield(L, -2, "memory");
+            lua_rawsetfield(L, -2, "memory");
         }
         
         if (cpu->v1.set_exec_breakpoint)
         {
             lua_pushcfunction(L, cpu_set_exec_breakpoint);
-            lua_setfield(L, -2, "set_exec_breakpoint");
+            lua_rawsetfield(L, -2, "set_exec_breakpoint");
         }
         
         if (cpu->v1.step_into)
         {
             lua_pushcfunction(L, cpu_step_into);
-            lua_setfield(L, -2, "step_into");
+            lua_rawsetfield(L, -2, "step_into");
         }
         
         if (cpu->v1.step_over)
         {
             lua_pushcfunction(L, cpu_step_over);
-            lua_setfield(L, -2, "step_over");
+            lua_rawsetfield(L, -2, "step_over");
         }
         
         if (cpu->v1.step_out)
         {
             lua_pushcfunction(L, cpu_step_out);
-            lua_setfield(L, -2, "step_out");
+            lua_rawsetfield(L, -2, "step_out");
         }
         
         lua_createtable(L, cpu->v1.num_break_points, 0);
@@ -740,7 +740,7 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
                 lua_rawseti(L, -2, i + 1);
             }
         }
-        lua_setfield(L, -2, "breakpoints");
+        lua_rawsetfield(L, -2, "breakpoints");
     }
         
     return 1;
@@ -803,13 +803,13 @@ void retro_script_luafield_hc_main_cpu_and_memory(lua_State* L)
         if (cpu && cpu->v1.is_main)
         {
             (void)push_cpu(L, cpu);
-            lua_setfield(L, -2, "main_cpu");
+            lua_rawsetfield(L, -2, "main_cpu");
             
             // add cpu memory if available
             if (cpu->v1.memory_region)
             {
                 (void)push_memory_region(L, cpu->v1.memory_region);
-                lua_setfield(L, -2, "main_memory");
+                lua_rawsetfield(L, -2, "main_memory");
             }
             return;
         }
