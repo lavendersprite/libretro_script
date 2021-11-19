@@ -89,12 +89,19 @@ RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua(const char* path_to_scr
 // callback should return 1 if successful, 0 on error.
 // returns 0 if script load fails.
 struct lua_State;
-typedef int (RETRO_CALLCONV *retro_script_setup_lua_t)(struct lua_State* l);
+typedef int (RETRO_CALLCONV *retro_script_setup_lua_t)(struct lua_State* L);
 RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua_special(const char* path_to_script, retro_script_setup_lua_t);
 
-// set callback to be invoked on a lua error.
-typedef void (RETRO_CALLCONV *retro_script_lua_on_error_t)(retro_script_id_t, int lua_error_code, const char* error_message);
-RETRO_SCRIPT_API void retro_script_on_lua_error(retro_script_lua_on_error_t);
+// set callback to be invoked on a lua error during pcall.
+// preferably, should not print anything, should just manipulate the error on the stack and return.
+typedef int (*lua_CFunction) (struct lua_State *L);
+RETRO_SCRIPT_API void retro_script_set_lua_error_handler(lua_CFunction);
+RETRO_SCRIPT_API lua_CFunction retro_script_get_lua_error_handler(void);
+
+// invoked if a lua error from a script reaches top-level without being caught.
+// default is to print the error.
+typedef void (*retro_script_lua_uncaught_error_cb) (retro_script_id_t script_id, int lua_status_code, const char* error_msg);
+RETRO_SCRIPT_API void retro_script_set_lua_uncaught_error_handler(retro_script_lua_uncaught_error_cb cb);
 
 #ifdef __cplusplus
 }

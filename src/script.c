@@ -26,14 +26,114 @@ ON_DEINIT()
     script_clear_all();
 }
 
+
 // default lua error response
-static void lua_print_error_message(retro_script_id_t script_id, int lua_errorcode, const char* errmsg)
+// we manipulate the error message to add the stack trace
+static int attach_stacktrace(lua_State* L)
 {
-    printf("libretro_script lua error (code %d): \"%s\"\n", lua_errorcode, errmsg);
+    if (!lua_isstring(L, 1))
+    {
+        // don't modify non-string error.
+        return 1;
+    }
+    lua_getglobal(L, LUA_DBLIBNAME);
+    if (!lua_istable(L, -1))
+    {
+        lua_pop(L, 1);
+        lua_pushstring(L, "(unable to attach stacktrace -- no debug lib) ");
+        lua_rotate(L, -2, 1);
+        lua_concat(L, 2);
+        return 1;
+    }
+    lua_getfield(L, -1, "traceback");
+    if (!lua_isfunction(L, -1))
+    {
+        lua_pop(L, 2);
+        lua_pushstring(L, "(unable to attach stacktrace -- debug.traceback corrupted or missing) ");
+        lua_rotate(L, -2, 1);
+        lua_concat(L, 2);
+        return 1;
+    }
+    lua_pushvalue(L, 1); // error
+    lua_pushinteger(L, 2);  // skip fn and traceback
+    lua_call(L, 2, 1);  // debug.traceback()
+    return 1;
+}
+
+static const char* lua_status_string(int status)
+{
+    switch (status)
+    {
+    case LUA_OK:
+        return "OK";
+    case LUA_YIELD:
+        return "YIELD";
+    case LUA_ERRRUN:
+        return "RUNTIME ERROR";
+    case LUA_ERRSYNTAX:
+        return "SYNTAX ERROR";
+    case LUA_ERRMEM:
+        return "MEMORY ERROR";
+    case LUA_ERRERR:
+        // TODO: double check -- this is an error while handling an error?
+        return "HANDLING ERROR";
+    default:
+        return "UNKOWN ERROR";
+    }
+}
+
+static void print_error_message(retro_script_id_t id, int status, const char* error_msg)
+{
+    // TODO: if id == 0, clarify that the retro script id is unknown.
+    if (error_msg)
+    {
+        printf("%s occurred in retro-script %d: %s\n", lua_status_string(status), id, error_msg);
+    }
+    else
+    {
+        printf("%s occurred in retro-script %d without message.\n", lua_status_string(status), id);
+    }
+    fflush(stdout);
+}
+
+// sets retro script error mesage from top of stack
+static const char* get_lua_error_string(lua_State* L)
+{   
+    if (lua_gettop(L) == 0)
+    {
+        return "Lua error, but stack empty (cannot display)";
+    }
+    
+    if (!lua_isstring(L, -1))
+    {
+        return "Lua error, but not a string (cannot display)";
+    }
+    else
+    {
+        lua_pushstring(L, "Lua error: ");
+        lua_concat(L, 2);
+        const char* errmsg = lua_tostring(L, -1);
+        if (errmsg)
+        {
+            return errmsg;
+        }
+        else
+        {
+            return "Lua error (cannot display)";
+        }
+    }
 }
 
 // lua error response (customizable)
-static retro_script_lua_on_error_t lua_on_error = lua_print_error_message;
+static lua_CFunction lua_on_error = attach_stacktrace;
+static retro_script_lua_uncaught_error_cb lua_on_uncaught_error = print_error_message;
+
+void retro_script_on_uncaught_error(lua_State* L, int status)
+{
+    if (status == 0) return;
+    script_state_t* script = script_find_lua(L);
+    if (lua_on_uncaught_error) lua_on_uncaught_error(script ? script->id : 0, status, get_lua_error_string(L));
+}
 
 #define SET_SCRIPT_REF(ref) retro_script_luafunc_set_##ref
 #define DEF_SET_SCRIPT_REF(REF, ALLOW_LIST) \
@@ -156,58 +256,34 @@ static void lua_set_libs(lua_State* L, const char* default_package_path)
 }
 
 RETRO_SCRIPT_API
-void retro_script_on_lua_error(retro_script_lua_on_error_t cb)
+void retro_script_set_lua_error_handler(lua_CFunction cb)
 {
     lua_on_error = cb;
 }
 
-// helper for retro_script_lua_pcall
-static void pop_error_and_return_nils(lua_State* L, int retc)
+RETRO_SCRIPT_API
+lua_CFunction retro_script_get_lua_error_handler(void)
 {
-    // one error value on stack. Pop it.
-    lua_pop(L, 1);
-    
-    // supplement stack with nils
-    for (int i = 0; i < retc; ++i)
-    {
-        lua_pushnil(L);
-    }
+    return lua_on_error;
 }
 
-void retro_script_lua_pcall(lua_State* L, int argc, int retc)
+RETRO_SCRIPT_API
+RETRO_SCRIPT_API void retro_script_set_lua_uncaught_error_handler(retro_script_lua_uncaught_error_cb cb)
 {
-    const int result = lua_pcall(L, argc, retc, 0);
-    if (result != LUA_OK)
+    lua_on_uncaught_error = cb;
+}
+
+int retro_script_lua_pcall(lua_State* L, int argc, int retc)
+{
+    if (lua_on_error == NULL)
     {
-        if (lua_on_error)
-        {
-            const script_state_t* script = script_find_lua(L);
-            const retro_script_id_t script_id = script ? script->id : 0;
-            
-            // get error string
-            char* lua_errmsg = NULL;
-            const char* errmsg = NULL;
-            
-            if (!lua_isstring(L, -1))
-            {
-                errmsg = "(non-string error)";
-            }
-            else
-            {
-                lua_errmsg = retro_script_strdup(lua_tostring(L, -1));
-                errmsg = "(insufficient memory to store error string)";
-            }
-            
-            pop_error_and_return_nils(L, retc);
-        
-            lua_on_error(script_id, result, lua_errmsg ? lua_errmsg : errmsg);
-            
-            if (lua_errmsg) free(lua_errmsg);
-        }
-        else
-        {
-            pop_error_and_return_nils(L, retc);
-        }
+        return lua_pcall(L, argc, retc, 0);
+    }
+    else
+    {
+        lua_pushcfunction(L, lua_on_error);
+        lua_rotate(L, -argc-2, 1);
+        return lua_pcall(L, argc, retc, -argc-2);
     }
 }
 
@@ -223,7 +299,12 @@ void retro_script_execute_cb(script_state_t* script, int ref)
     lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
     if (lua_isfunction(L, -1))
     {
-        retro_script_lua_pcall(L, 0, 0);
+        int result = retro_script_lua_pcall(L, 0, 0);
+        if (result != LUA_OK)
+        {
+            if (lua_on_uncaught_error) lua_on_uncaught_error(script->id, result, get_lua_error_string(L));
+            lua_pop(L, 1);
+        }
     }
     else if (lua_istable(L, -1))
     {
@@ -232,10 +313,16 @@ void retro_script_execute_cb(script_state_t* script, int ref)
         for (int i = 1; i <= len; ++i)
         {
             lua_rawgeti(L, -1, i);
-            retro_script_lua_pcall(L, 0, 0);
+            int result = retro_script_lua_pcall(L, 0, 0);
+            if (result != LUA_OK)
+            {
+                if (lua_on_uncaught_error) lua_on_uncaught_error(script->id, result, get_lua_error_string(L));
+                lua_pop(L, 1);
+            }
             lua_settop(L, top);
         }
     }
+    lua_settop(L, 0);
 }
 
 RETRO_SCRIPT_API retro_script_id_t retro_script_load_lua(const char* script_path)

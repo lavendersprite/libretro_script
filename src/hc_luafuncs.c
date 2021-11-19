@@ -263,16 +263,22 @@ static int memory_poke(lua_State* L)
 
 static void pcall_function_from_ref(lua_State* L, lua_Integer ref, const int argc, const int retc)
 {
+    const int top = lua_gettop(L);
     lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
     if (lua_isfunction(L, -1))
     {
-        retro_script_lua_pcall(L, argc, retc);
+        int result = retro_script_lua_pcall(L, argc, retc);
+        retro_script_on_uncaught_error(L, result);
+        if (result != LUA_OK) goto return_nils;
     }
     else
     {
-        // for some reason, not a function.
-        // just clean up the stack.
-        lua_pop(L, 1 + argc);
+    return_nils:
+        lua_settop(L, top);
+        for (int i = 0; i < retc; ++i)
+        {
+            lua_pushnil(L);
+        }
     }
 }
 

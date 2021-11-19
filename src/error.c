@@ -10,7 +10,7 @@ void retro_script_clear_error()
     if (error_managed)
     {
         error_managed = 0;
-        free((char*)error_text);
+        if (error_text) free((char*)error_text);
     }
     
     error_text = NULL;
@@ -38,13 +38,9 @@ void retro_script_set_error(const char* s)
 
 void retro_script_set_error_nofree(const char* s)
 {
-    if (!s)
+    retro_script_clear_error();
+    if (s)
     {
-        retro_script_clear_error();
-    }
-    else
-    {
-        retro_script_clear_error();
         error_managed = 0;
         error_text = s;
     }
