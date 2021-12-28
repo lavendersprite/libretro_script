@@ -93,5 +93,14 @@ int retro_script_lua_rawgetfield(struct lua_State* L, int index, const char* fie
 
 void retro_script_lua_rawsetfield(struct lua_State* L, int index, const char* field);
 
+// adds top-of-stack lua variable to given ref list,
+// creating the ref if needed (i.e. if the ref arg here points to LUA_NOREF), and popping the variable.
+void retro_script_reflist_lua_variable(struct lua_State* L, int* ref);
+
+// pushes the given ref'd variable to the top of the stack.
+// returns 0 if no variable ref'd.
+// i should range  0, 1, 2, etc. until this returns nonzero.
+int retro_script_reflist_get(struct lua_State* L, int ref, int i);
+
 #define lua_rawgetfield retro_script_lua_rawgetfield
 #define lua_rawsetfield retro_script_lua_rawsetfield

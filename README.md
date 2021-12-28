@@ -166,6 +166,10 @@ A list of special breakpoints. (see `retro.hc.system_get_breakpoints()` for fiel
 
 Retrieves a list of all emulated CPUs. The following fields may be included:
 
+### retro.hc.breakpoint_clear(breakpoint_id)
+
+Clears the given breakpoint id.
+
 ### \* cpu.description
 
 ### cpu.type

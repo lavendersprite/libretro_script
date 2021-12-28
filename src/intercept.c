@@ -2,6 +2,7 @@
 #include "libretro_script.h"
 
 #include "script.h"
+#include "script_list.h"
 #include "memmap.h"
 #include "hc_hooks.h"
 #include "core.h"

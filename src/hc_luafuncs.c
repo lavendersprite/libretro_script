@@ -800,6 +800,15 @@ int retro_script_luafunc_hc_system_get_cpus(lua_State* L)
     return 1;
 }
 
+int retro_script_luafunc_hc_breakpoint_clear(lua_State* L)
+{
+    assert_argc(L, 1);
+    const unsigned int breakpoint_id = lua_tointeger(L, 1);
+    const unsigned int was_removed = retro_script_hc_unregister_breakpoint(breakpoint_id);
+    lua_pushboolean(L, was_removed);
+    return 1;
+}
+
 void retro_script_luafield_hc_main_cpu_and_memory(lua_State* L)
 {
     if (!debugger || !system) return;

@@ -5,6 +5,7 @@
 
 #include "libretro_script.h"
 #include "script.h"
+#include "script_list.h"
 #include "error.h"
 #include "memmap.h"
 #include "core.h"
@@ -25,7 +26,6 @@ ON_DEINIT()
 {
     script_clear_all();
 }
-
 
 // default lua error response
 // we manipulate the error message to add the stack trace
@@ -241,6 +241,7 @@ static void lua_set_libs(lua_State* L, const char* default_package_path)
             REGISTER_FUNC("system_get_memory_regions", retro_script_luafunc_hc_system_get_memory_regions);
             REGISTER_FUNC("system_get_breakpoints", retro_script_luafunc_hc_system_get_breakpoints);
             REGISTER_FUNC("system_get_cpus", retro_script_luafunc_hc_system_get_cpus);
+            REGISTER_FUNC("breakpoint_clear", retro_script_luafunc_hc_breakpoint_clear);
             
             retro_script_luafield_hc_main_cpu_and_memory(L);
             
