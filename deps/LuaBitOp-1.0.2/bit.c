@@ -29,6 +29,7 @@
 #define LUA_BITOP_VERSION	"1.0.2"
 
 #define LUA_LIB
+#include "lprefix.h"
 #include "lua.h"
 #include "lauxlib.h"
 
@@ -46,6 +47,9 @@ typedef uint32_t UBits;
 
 #if LUA_VERSION_NUM >= 503
   #define lua_Number lua_Integer
+  #ifdef lua_pushnumber
+    #undef lua_pushnumber
+  #endif
   #define lua_pushnumber lua_pushinteger
 #endif
 

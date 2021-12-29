@@ -4,9 +4,10 @@
 ** See Copyright Notice in lua.h
 */
 
+#include "../lua_5.4.3_sym_def.h"
+
 #ifndef lprefix_h
 #define lprefix_h
-
 
 /*
 ** Allows POSIX/XSI stuff
