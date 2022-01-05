@@ -120,7 +120,7 @@ Retrieves a list of special system breakpoints. The following fields may be incl
 
 ### \* breakpoint.description
 
-### \* breakpoint:enable([yes,] callback)
+### \* breakpoint:enable(callback)
 
 *Returns:* a breakpoint handle (currently not useful).
 

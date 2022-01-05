@@ -106,7 +106,7 @@ static inline void poke_range(hc_Memory const* mem, uint64_t start, size_t count
     for (size_t i = 0; i < count; ++i)
     {
         size_t index = reverse ? (count - i - 1) : i;
-        mem->v1.poke(core.hc.userdata, start + index, *data);
+        mem->v1.poke(start + index, *data);
         data++;
     }
 }
@@ -117,7 +117,7 @@ static inline void peek_range(hc_Memory const* mem, uint64_t start, size_t count
     for (size_t i = 0; i < count; ++i)
     {
         size_t index = reverse ? (count - i - 1) : i;
-        *data = mem->v1.peek(core.hc.userdata, start + index);
+        *data = mem->v1.peek(start + index);
         data++;
     }
 }
@@ -161,7 +161,7 @@ static int hc_memory_write_##ctype##_##le(lua_State* L) \
 static int hc_memory_read_char(lua_State* L)
 {
     HC_MEMORY_ACCESS_PREAMBLE(2);
-    char v = mem->v1.peek(core.hc.userdata, address);
+    char v = mem->v1.peek(address);
     lua_pushinteger(L, v);
     return 1;
 }
@@ -169,7 +169,7 @@ static int hc_memory_read_char(lua_State* L)
 static int hc_memory_read_byte(lua_State* L)
 {
     HC_MEMORY_ACCESS_PREAMBLE(2);
-    uint8_t v = mem->v1.peek(core.hc.userdata, address);
+    uint8_t v = mem->v1.peek(address);
     lua_pushinteger(L, v);
     return 1;
 }
@@ -178,7 +178,7 @@ static int hc_memory_write_char(lua_State* L)
 {
     HC_MEMORY_ACCESS_PREAMBLE(3);
     lua_Integer v = lua_tointeger(L, 3);
-    mem->v1.poke(core.hc.userdata, address, v);
+    mem->v1.poke(address, v);
     return 0;
 }
 
@@ -186,7 +186,7 @@ static int hc_memory_write_byte(lua_State* L)
 {
     HC_MEMORY_ACCESS_PREAMBLE(3);
     lua_Integer v = lua_tointeger(L, 3);
-    mem->v1.poke(core.hc.userdata, address, v);
+    mem->v1.poke(address, v);
     return 0;
 }
 
@@ -199,66 +199,24 @@ DEFINE_HC_MEMORY_ACCESS(uint64_t, integer);
 DEFINE_HC_MEMORY_ACCESS(float, number);
 DEFINE_HC_MEMORY_ACCESS(double, number);
 
-static int cpu_step_into(lua_State* L)
+// precondition: the top el't of the lua stack is a lua callback function
+// postcondition: the top el't of the lua stack is the breakpoint id
+// returns breakpoint id or -1
+static hc_SubscriptionID breakpoint_register(lua_State* L, hc_Subscription const* s, retro_script_breakpoint_cb cb)
 {
-    assert_argc(L, 1);
+    lua_pushvalue(L, -1);
+    uintptr_t ref = luaL_ref(L, LUA_REGISTRYINDEX);
     
-    hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
-    if (!cpu || !cpu->v1.step_into) return 0;
+    const hc_SubscriptionID id = debugger->v1.subscribe(s);
+    if (id < 0) return -1;
     
-    cpu->v1.step_into(core.hc.userdata);
-    return 0;
-}
-
-static int cpu_step_over(lua_State* L)
-{
-    assert_argc(L, 1);
+    retro_script_hc_breakpoint_userdata u;
+    u.values[0].ptr = L;
+    u.values[1].u64 = ref;
+    retro_script_hc_register_breakpoint(&u, id, cb);
     
-    hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
-    if (!cpu || !cpu->v1.step_over) return 0;
-    
-    cpu->v1.step_over(core.hc.userdata);
-    return 0;
-}
-
-static int cpu_step_out(lua_State* L)
-{
-    assert_argc(L, 1);
-    
-    hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
-    if (!cpu || !cpu->v1.step_out) return 0;
-    
-    cpu->v1.step_out(core.hc.userdata);
-    return 0;
-}
-
-static int memory_peek(lua_State* L)
-{
-    assert_argc(L, 2);
-    
-    hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
-    if (!memory || !memory->v1.peek) return 0;
-    
-    uint64_t address = lua_tointeger(L, 2);
-    uint8_t value = memory->v1.peek(core.hc.userdata, address);
-    
-    lua_pushinteger(L, value);
-    return 1;
-}
-
-static int memory_poke(lua_State* L)
-{
-    assert_argc(L, 3);
-    
-    hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
-    if (!memory || !memory->v1.poke) return 0;
-    
-    uint64_t address = lua_tointeger(L, 2);
-    
-    uint8_t value = lua_tointeger(L, 3);
-    
-    memory->v1.poke(core.hc.userdata, address, value);
-    return 0;
+    lua_pushinteger(L, id);
+    return id;
 }
 
 static void pcall_function_from_ref(lua_State* L, lua_Integer ref, const int argc, const int retc)
@@ -282,9 +240,11 @@ static void pcall_function_from_ref(lua_State* L, lua_Integer ref, const int arg
     }
 }
 
-// invoked on cpu exec breakpoint trigger
-static void on_breakpoint(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
+static void on_step_event(retro_script_hc_breakpoint_userdata u, hc_SubscriptionID id, hc_Event const* e)
 {
+    // step events only fire once. Unregister this event.
+    retro_script_hc_unregister_breakpoint(id);
+    
     lua_State* L = (lua_State*)u.values[0].ptr;
     lua_Integer ref = u.values[1].u64;
     
@@ -294,38 +254,132 @@ static void on_breakpoint(retro_script_hc_breakpoint_userdata u, unsigned breakp
     pcall_function_from_ref(L, ref, argc, 0);
 }
 
+static int cpu_step_into(lua_State* L)
+{
+    assert_argc(L, 2);
+    
+    hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
+    if (!cpu || !debugger->v1.subscribe) return 0;
+    
+    hc_Subscription s;
+    s.type = HC_EVENT_EXECUTION;
+    s.execution.cpu = cpu;
+    s.execution.type = HC_STEP_SKIP_INTERRUPT;
+    s.execution.address_range_begin = 0;
+    s.execution.address_range_end = -1;
+    
+    return breakpoint_register(L, &s, on_step_event) >= 0;
+}
+
+static int cpu_step_over(lua_State* L)
+{
+    assert_argc(L, 2);
+    
+    hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
+    if (!cpu || !debugger->v1.subscribe) return 0;
+    
+    hc_Subscription s;
+    s.type = HC_EVENT_EXECUTION;
+    s.execution.cpu = cpu;
+    s.execution.type = HC_STEP_CURRENT_SUBROUTINE;
+    s.execution.address_range_begin = 0;
+    s.execution.address_range_end = -1;
+    
+    return breakpoint_register(L, &s, on_step_event) >= 0;
+}
+
+static int cpu_step_out(lua_State* L)
+{
+    assert_argc(L, 2);
+    
+    hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
+    if (!cpu || !debugger->v1.subscribe) return 0;
+    
+    hc_Subscription s;
+    s.type = HC_EVENT_RETURN;
+    s.execution_return.cpu = cpu;
+    
+    return breakpoint_register(L, &s, on_step_event) >= 0;
+}
+
+static int memory_peek(lua_State* L)
+{
+    assert_argc(L, 2);
+    
+    hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
+    if (!memory || !memory->v1.peek) return 0;
+    
+    uint64_t address = lua_tointeger(L, 2);
+    uint8_t value = memory->v1.peek(address);
+    
+    lua_pushinteger(L, value);
+    return 1;
+}
+
+static int memory_poke(lua_State* L)
+{
+    assert_argc(L, 3);
+    
+    hc_Memory const* memory = (hc_Memory const*)get_userdata_from_self(L);
+    if (!memory || !memory->v1.poke) return 0;
+    
+    uint64_t address = lua_tointeger(L, 2);
+    
+    uint8_t value = lua_tointeger(L, 3);
+    
+    memory->v1.poke(address, value);
+    return 0;
+}
+
 // invoked on cpu exec breakpoint trigger
-static void on_cpu_exec(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
+static void on_breakpoint(retro_script_hc_breakpoint_userdata u, hc_SubscriptionID breakpoint_id, hc_Event const* e)
+{
+    lua_State* L = (lua_State*)u.values[0].ptr;
+    lua_Integer ref = u.values[1].u64;
+    
+    const int argc = 0;
+    
+    pcall_function_from_ref(L, ref, argc, 0);
+}
+
+// invoked on cpu exec breakpoint trigger
+static void on_cpu_exec(retro_script_hc_breakpoint_userdata u, hc_SubscriptionID breakpoint_id, hc_Event const* e)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
     lua_Integer ref = u.values[1].u64;
     
     // TODO: arguments.
-    const int argc = 0;
+    const int argc = 1;
+    lua_pushinteger(L, e->execution.address);
     
     pcall_function_from_ref(L, ref, argc, 0);
 }
 
 // invoked on watchpoint trigger
-static void on_memory_access(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
+static void on_memory_access(retro_script_hc_breakpoint_userdata u, hc_SubscriptionID breakpoint_id, hc_Event const* e)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
     uintptr_t ref = (uintptr_t)u.values[1].u64;
     
     // TODO: arguments.
-    const int argc = 0;
+    const int argc = 3;
+    lua_pushinteger(L, e->memory.address);
+    lua_pushinteger(L, e->memory.operation);
+    lua_pushinteger(L, e->memory.value);
     
     pcall_function_from_ref(L, ref, argc, 0);
 }
 
 // invoked on register breakpoint trigger
-static void on_register_breakpoint(retro_script_hc_breakpoint_userdata u, unsigned breakpoint_id)
+static void on_register_breakpoint(retro_script_hc_breakpoint_userdata u, hc_SubscriptionID breakpoint_id, hc_Event const* e)
 {
     lua_State* L = (lua_State*)u.values[0].ptr;
     uintptr_t ref = (uintptr_t)u.values[1].u64;
     
     // TODO: arguments.
-    const int argc = 0;
+    const int argc = 2;
+    lua_pushinteger(L, e->reg.reg);
+    lua_pushinteger(L, e->reg.new_value);
     
     pcall_function_from_ref(L, ref, argc, 0);
 }
@@ -352,7 +406,7 @@ static int get_register(lua_State* L)
     
     if (!cpu->v1.get_register) return 0;
     
-    lua_pushinteger(L, cpu->v1.get_register(core.hc.userdata, idx));
+    lua_pushinteger(L, cpu->v1.get_register(idx));
     
     return 1;
 }
@@ -381,7 +435,6 @@ static int set_register(lua_State* L)
     if (!cpu->v1.set_register) return 0;
     
     cpu->v1.set_register(
-        core.hc.userdata,
         idx,
         lua_tointeger(L, 2)
     );
@@ -410,24 +463,14 @@ static int set_register_breakpoint(lua_State* L)
         return 0;
     }
     
-    if (!cpu->v1.set_reg_breakpoint) return 0;
+    hc_Subscription s;
+    {
+        s.type = HC_EVENT_REG;
+        s.reg.cpu = cpu;
+        s.reg.reg = idx;
+    }
     
-    // REF the provided function
-    lua_pushvalue(L, -1);
-    uintptr_t ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    
-    const unsigned id = cpu->v1.set_reg_breakpoint(
-        core.hc.userdata, idx
-    );
-    
-    retro_script_hc_breakpoint_userdata u;
-    u.values[0].ptr = L;
-    u.values[1].u64 = ref;
-    retro_script_hc_register_breakpoint(&u, id, on_register_breakpoint);
-    
-    // return breakpoint id
-    lua_pushinteger(L, id);
-    return 1;
+    return breakpoint_register(L, &s, on_register_breakpoint) >= 0;
 }
 
 // lua args: self, address, length, [read/write string], callback
@@ -446,51 +489,36 @@ static int memory_set_watchpoint(lua_State* L)
     const bool watch_read = mode ? !!strchr(mode, 'r') : 0;
     const bool watch_write = mode ? !!strchr(mode, 'w') : 1;
     
-    // REF the provided function
-    lua_pushvalue(L, -1);
-    uintptr_t ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    hc_Subscription s;
+    {
+        s.type = HC_EVENT_MEMORY;
+        s.memory.memory = memory;
+        s.memory.address_range_begin = address;
+        s.memory.address_range_end = address + length;
+        s.memory.operation = 0;
+        if (watch_read) s.memory.operation |= HC_MEMORY_READ;
+        if (watch_write) s.memory.operation |= HC_MEMORY_WRITE;
+    }
     
-    const unsigned id = memory->v1.set_watchpoint(
-        core.hc.userdata, address, length, watch_read, watch_write
-    );
-    
-    retro_script_hc_breakpoint_userdata u;
-    u.values[0].ptr = L;
-    u.values[1].u64 = ref;
-    retro_script_hc_register_breakpoint(&u, id, on_memory_access);
-    
-    // return breakpoint id
-    lua_pushinteger(L, id);
-    return 1;
+    return breakpoint_register(L, &s, on_memory_access) >= 0;
 }
 
-// args: self, [yes], callback
-//  ret: breakpoint id
+// args: self, callback
+//  lua return: breakpoint id
 static int breakpoint_enable(lua_State* L)
 {
-    assert_argc_range(L, 2, 3);
+    assert_argc(L, 2);
     
-    hc_Breakpoint const* breakpoint = (hc_Breakpoint const*)get_userdata_from_self(L);
-    if (!breakpoint || !breakpoint->v1.enable) return 0;
+    hc_GenericBreakpoint const* breakpoint = (hc_GenericBreakpoint const*)get_userdata_from_self(L);
+    if (!breakpoint) return 0;
     
-    // FIXME: what does 'yes' mean? How should we respect it..?
-    const bool yes = (nargs(L) == 3)
-        ?  lua_toboolean(L, 2)
-        : 1;
+    hc_Subscription s;
+    {
+        s.type = HC_EVENT_GENERIC;
+        s.generic.breakpoint = breakpoint;
+    }
     
-    // REF the provided function
-    lua_pushvalue(L, -1);
-    uintptr_t ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    
-    const unsigned id = breakpoint->v1.enable(core.hc.userdata, yes);
-    
-    retro_script_hc_breakpoint_userdata u;
-    u.values[0].ptr = L;
-    u.values[1].u64 = ref;
-    retro_script_hc_register_breakpoint(&u, id, on_breakpoint);
-    
-    lua_pushinteger(L, id);
-    return 1;
+    return breakpoint_register(L, &s, on_breakpoint) >= 0;
 }
 
 // args: self, address, callback
@@ -500,26 +528,23 @@ static int cpu_set_exec_breakpoint(lua_State* L)
     assert_argc(L, 3);
     
     hc_Cpu const* cpu = (hc_Cpu const*)get_userdata_from_self(L);
-    if (!cpu || !cpu->v1.set_exec_breakpoint) return 0;
+    if (!cpu || !debugger->v1.subscribe) return 0;
     
     uint64_t address = lua_tointeger(L, 2);
     
-    // REF the provided function
-    lua_pushvalue(L, -1);
-    uintptr_t ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    hc_Subscription s;
+    {
+        s.type = HC_EVENT_EXECUTION;
+        s.execution.cpu = cpu;
+        s.execution.type = HC_STEP;
+        s.execution.address_range_begin = address;
+        s.execution.address_range_end = address + 1;
+    }
     
-    const unsigned id = cpu->v1.set_exec_breakpoint(core.hc.userdata, address);
-    
-    retro_script_hc_breakpoint_userdata u;
-    u.values[0].ptr = L;
-    u.values[1].u64 = ref;
-    retro_script_hc_register_breakpoint(&u, id, on_cpu_exec);
-    
-    lua_pushinteger(L, id);
-    return 1;
+    return breakpoint_register(L, &s, on_cpu_exec) >= 0;
 }
 
-static int push_breakpoint(lua_State* L, hc_Breakpoint const* breakpoint)
+static int push_breakpoint(lua_State* L, hc_GenericBreakpoint const* breakpoint)
 {
     if (lua_table_for_data(L, breakpoint))
     {
@@ -531,12 +556,9 @@ static int push_breakpoint(lua_State* L, hc_Breakpoint const* breakpoint)
             lua_pushstring(L, breakpoint->v1.description);
             lua_rawsetfield(L, -2, "description");
         }
-        
-        if (breakpoint->v1.enable)
-        {
-            lua_pushcfunction(L, breakpoint_enable);
-            lua_rawsetfield(L, -2, "enable");
-        }
+
+        lua_pushcfunction(L, breakpoint_enable);
+        lua_rawsetfield(L, -2, "enable");
     }
     
     return 1;
@@ -607,11 +629,8 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
             MEMFIELD(write, float64, double);
         }
         
-        if (mem->v1.set_watchpoint)
-        {
-            lua_pushcfunction(L, memory_set_watchpoint);
-            lua_rawsetfield(L, -2, "set_watchpoint");
-        }
+        lua_pushcfunction(L, memory_set_watchpoint);
+        lua_rawsetfield(L, -2, "set_watchpoint");
         
         lua_createtable(L, mem->v1.num_break_points, 0);
         for (size_t i = 0; i < mem->v1.num_break_points; ++i)
@@ -692,11 +711,8 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
                     lua_rawsetfield(L, -2, "set");
                 }
                 
-                if (cpu->v1.set_reg_breakpoint)
-                {
-                    lua_pushcfunction(L, set_register_breakpoint);
-                    lua_rawsetfield(L, -2, "watch");
-                }
+                lua_pushcfunction(L, set_register_breakpoint);
+                lua_rawsetfield(L, -2, "watch");
                 
                 lua_rawseti(L, -2, i + 1);
             }
@@ -713,29 +729,17 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
             lua_rawsetfield(L, -2, "memory");
         }
         
-        if (cpu->v1.set_exec_breakpoint)
-        {
-            lua_pushcfunction(L, cpu_set_exec_breakpoint);
-            lua_rawsetfield(L, -2, "set_exec_breakpoint");
-        }
+        lua_pushcfunction(L, cpu_step_into);
+        lua_rawsetfield(L, -2, "step_into");
         
-        if (cpu->v1.step_into)
-        {
-            lua_pushcfunction(L, cpu_step_into);
-            lua_rawsetfield(L, -2, "step_into");
-        }
+        lua_pushcfunction(L, cpu_step_over);
+        lua_rawsetfield(L, -2, "step_over");
         
-        if (cpu->v1.step_over)
-        {
-            lua_pushcfunction(L, cpu_step_over);
-            lua_rawsetfield(L, -2, "step_over");
-        }
+        lua_pushcfunction(L, cpu_step_out);
+        lua_rawsetfield(L, -2, "step_out");
         
-        if (cpu->v1.step_out)
-        {
-            lua_pushcfunction(L, cpu_step_out);
-            lua_rawsetfield(L, -2, "step_out");
-        }
+        lua_pushcfunction(L, cpu_set_exec_breakpoint);
+        lua_rawsetfield(L, -2, "set_exec_breakpoint");
         
         lua_createtable(L, cpu->v1.num_break_points, 0);
         for (size_t i = 0; i < cpu->v1.num_break_points; ++i)

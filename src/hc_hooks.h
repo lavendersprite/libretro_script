@@ -20,6 +20,6 @@ typedef struct retro_script_hc_breakpoint_userdata
     } values[RETRO_SCRIPT_HC_BREAKPOINT_USERDATA_COUNT];
 } retro_script_hc_breakpoint_userdata;
 
-typedef void (*retro_script_breakpoint_cb)(retro_script_hc_breakpoint_userdata, unsigned breakpoint_id);
-int retro_script_hc_register_breakpoint(retro_script_hc_breakpoint_userdata*, unsigned breakpoint_id, retro_script_breakpoint_cb); // returns 1 if failure
-int retro_script_hc_unregister_breakpoint(unsigned breakpoint_id); // returns 1 if failure
+typedef void (*retro_script_breakpoint_cb)(retro_script_hc_breakpoint_userdata, hc_SubscriptionID breakpoint_id, hc_Event const*);
+int retro_script_hc_register_breakpoint(retro_script_hc_breakpoint_userdata const*, hc_SubscriptionID breakpoint_id, retro_script_breakpoint_cb); // returns 1 if failure
+int retro_script_hc_unregister_breakpoint(hc_SubscriptionID breakpoint_id); // returns 1 if failure

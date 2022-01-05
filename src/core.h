@@ -31,7 +31,7 @@ extern struct core_t
 } retro_script_core;
 #define core retro_script_core
 
-typedef void (* breakpoint_cb_t)(unsigned id);
+typedef void (* breakpoint_cb_t)(void* ud, hc_SubscriptionID, hc_Event const*);
 
 extern struct frontend_callbacks_t
 {
