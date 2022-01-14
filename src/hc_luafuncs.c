@@ -421,7 +421,7 @@ static int set_register(lua_State* L)
     if (!cpu) return 0;
     
     lua_Integer idx;
-    if (lua_rawgetfield(L, 0, "_idx") == LUA_TNUMBER)
+    if (lua_rawgetfield(L, 1, "_idx") == LUA_TNUMBER)
     {
         idx = lua_tointeger(L, -1);
         lua_pop(L, 1);
