@@ -580,7 +580,7 @@ static int push_memory_region(lua_State* L, hc_Memory const* mem)
         if (mem->v1.description)
         {
             lua_pushstring(L, mem->v1.description);
-            lua_rawsetfield(L, -2, "id");
+            lua_rawsetfield(L, -2, "description");
         }
         
         lua_pushinteger(L, mem->v1.alignment);
@@ -769,7 +769,13 @@ int retro_script_luafunc_hc_system_get_memory_regions(lua_State* L)
     {
         if (system->v1.memory_regions[i])
         {
-            (void)push_memory_region(L, system->v1.memory_regions[i]);
+            const hc_Memory* mem = system->v1.memory_regions[i];
+            (void)push_memory_region(L, mem);
+            if (mem->v1.id)
+            {
+                lua_pushvalue(L, -1);
+                lua_rawsetfield(L, -2, mem->v1.id);
+            }
             lua_rawseti(L, -2, i + 1);
         }
     }
