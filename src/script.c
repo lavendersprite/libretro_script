@@ -173,6 +173,8 @@ static void lua_set_libs(lua_State* L, const char* default_package_path)
     luaL_requiref(L, LUA_GNAME, luaopen_base, true);
     luaL_requiref(L, LUA_MATHLIBNAME, luaopen_math, true);
     luaL_requiref(L, LUA_STRLIBNAME, luaopen_string, true);
+    luaL_requiref(L, LUA_IOLIBNAME, luaopen_io, true);
+    luaL_requiref(L, LUA_OSLIBNAME, luaopen_os, true);
     luaL_requiref(L, LUA_TABLIBNAME, luaopen_table, true);
     luaL_requiref(L, LUA_UTF8LIBNAME, luaopen_utf8, true);
     luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, true);

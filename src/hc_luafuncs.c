@@ -663,7 +663,7 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
         lua_pushinteger(L, cpu->v1.type);
         lua_rawsetfield(L, -2, "type");
         
-        const char* cpu_name = retro_script_hc_get_cpu_name(cpu->v1.type);
+        const char* cpu_name = retro_script_hc_get_cpu_name(cpu);
         if (cpu_name)
         {
             lua_pushstring(L, cpu_name);
@@ -671,7 +671,7 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
         }
         
         // registers
-        const int num_registers = retro_script_hc_get_cpu_register_count(cpu->v1.type);
+        const int num_registers = retro_script_hc_get_cpu_register_count(cpu);
         if (num_registers >= 0)
         {
             lua_newtable(L);
@@ -685,7 +685,7 @@ static int push_cpu(lua_State* L, hc_Cpu const* cpu)
                 lua_pushinteger(L, i);
                 lua_rawsetfield(L, -2, "_idx");
                 
-                const char* name = retro_script_hc_get_cpu_register_name(cpu->v1.type, i);
+                const char* name = retro_script_hc_get_cpu_register_name(cpu, i);
                 if (name)
                 {
                     lua_pushstring(L, name);

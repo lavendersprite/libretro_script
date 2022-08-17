@@ -79,6 +79,34 @@ typedef struct hc_Memory {
 }
 hc_Memory;
 
+struct hc_Cpu;
+
+typedef struct hc_CpuArchitecture {
+    struct {
+        const char* name; // e.g. "6502", "Z80", "x86"
+        int little_endian; // 1 if little-endian (i.e. if 0x1234 == [0x34, 0x12]).
+        unsigned register_count; // number of registers accessible. It's okay for registers to overlap; registers can even comprise multiple others.
+        uint8_t const* register_sizes; // number of 8-bit bytes in register. Round up if not exactly 8,16,24,32 bits etc.
+        char const* const* register_names;
+        
+        // Field can be left NULL.
+        // returns 0 if failed to disassemble, otherwise number of instruction bytes read/advanced.
+        // should disassemble 1 instruction. Instructions should be newline-separated with no extraneous whitespace (no indentation).
+        //   ibuff: instruction buffer
+        //   dabuff: pointer to output disassembly text. Implementation advances this.
+        //   dabuff_size: max size to be written to dabuff.
+        unsigned (*disassemble)(struct hc_Cpu const*, uint8_t const* ibuff, const char** dabuff, unsigned dabuff_size);
+        
+        // Field can be left NULL.
+        // returns number of bytes of assembly written.
+        //   ibuff: output instruction buffer.
+        //   ibuff_end: don't write past this point. (NULL to ignore.)
+        //   abuff: pointer to input assembly text. Implementation advances this.
+        unsigned (*assemble)(struct hc_Cpu const*, uint8_t* ibuff, uint8_t const* ibuff_end, const char** abuff);
+    }
+    v1;
+} hc_CpuArchitecture;
+
 typedef struct hc_Cpu {
     struct {
         /* CPU info */
@@ -97,6 +125,9 @@ typedef struct hc_Cpu {
         /* Registers, return true on set_register to signal a successful write */
         uint64_t (*get_register)(unsigned reg);
         int (*set_register)(unsigned reg, uint64_t value);
+        
+        // Backwards compatability: it's only safe to access this field if 'type' is HC_CPU_CUSTOM.
+        hc_CpuArchitecture const* architecture;
     }
     v1;
 }
@@ -282,7 +313,8 @@ typedef struct hc_Subscription {
 }
 hc_Subscription;
 
-/* Debug interface. Shared between the core and frontend. Members which are const are initialized by the frontend */
+/*  Debug interface. Shared between the core and frontend. Members which are const are initialized by the frontend.
+    Initialized in proc: void (*hc_set_debugger)(hc_DebuggerIf*)" */
 typedef struct hc_DebuggerIf {
     unsigned const frontend_api_version;
     unsigned core_api_version;
@@ -309,6 +341,9 @@ typedef void (*hc_Set)(hc_DebuggerIf* const debugger_if);
 
 #define HC_MAKE_CPU_TYPE(id, version) ((id) << 16 | (version))
 #define HC_CPU_API_VERSION(type) ((type) & 0xffffU)
+
+// denotes system will declare its CPU properties on its own, rather than use headers.
+#define HC_CPU_CUSTOM HC_MAKE_CPU_TYPE(0xFFFE, 1)
 
 /* Supported CPUs in API version 1 */
 #define HC_CPU_Z80 HC_MAKE_CPU_TYPE(0, 1)

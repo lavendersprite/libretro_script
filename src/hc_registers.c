@@ -2,11 +2,14 @@
 
 #include <stddef.h>
 
-const char* retro_script_hc_get_cpu_name(unsigned type)
+const char* retro_script_hc_get_cpu_name(hc_Cpu const* cpu)
 {
+    unsigned type = cpu->v1.type;
     #define CASE(NAME) case HC_CPU_##NAME: return #NAME;
     switch (type)
     {
+    case HC_CPU_CUSTOM:
+        return cpu->v1.architecture->v1.name;
     CASE(Z80);
     CASE(6502);
     CASE(65816);
@@ -15,11 +18,14 @@ const char* retro_script_hc_get_cpu_name(unsigned type)
     #undef CASE
 }
 
-int retro_script_hc_get_cpu_register_count(unsigned type)
+int retro_script_hc_get_cpu_register_count(hc_Cpu const* cpu)
 {
+    unsigned type = cpu->v1.type;
     #define CASE(NAME) case HC_CPU_##NAME: return HC_##NAME##_NUM_REGISTERS;
     switch(type)
     {
+    case HC_CPU_CUSTOM:
+        return cpu->v1.architecture->v1.register_count;
     CASE(Z80);
     CASE(6502);
     CASE(65816);
@@ -28,8 +34,19 @@ int retro_script_hc_get_cpu_register_count(unsigned type)
     #undef CASE
 }
 
-const char* retro_script_hc_get_cpu_register_name(unsigned cpu_type, unsigned register_type)
+const char* retro_script_hc_get_cpu_register_name(hc_Cpu const* cpu, unsigned register_type)
 {
+    unsigned cpu_type = cpu->v1.type;
+    
+    if (cpu_type == HC_CPU_CUSTOM)
+    {
+        if (register_type < cpu->v1.architecture->v1.register_count && cpu->v1.architecture->v1.register_names)
+        {
+            return cpu->v1.architecture->v1.register_names[register_type];
+        }
+        return NULL;
+    }
+    
     #define CPUSHIFT 8
     if (register_type >= (1 << CPUSHIFT)) return NULL;
     
